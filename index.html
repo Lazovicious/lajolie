@@ -70,18 +70,18 @@
           </div>
 
           <div>
-            <label class="block mb-2 text-sm font-medium">Dizajn</label>
-            <div class="flex gap-6">
-              <label class="inline-flex items-center space-x-2 text-gray-700 text-sm">
-                <input type="checkbox" class="form-checkbox rounded text-pink-600 focus:ring-pink-400" value="boja" />
+            <label class="block mb-2 text-sm font-medium">Dizajn noktiju, opcije</label>
+            <div class="flex flex-col gap-1">
+              <label class="inline-flex items-start space-x-2 text-gray-700 text-sm">
+                <input type="checkbox" class="form-checkbox rounded text-pink-600 focus:ring-pink-400 mt-1" value="boja" />
                 <span>Boja</span>
               </label>
-              <label class="inline-flex items-center space-x-2 text-gray-700 text-sm">
-                <input type="checkbox" class="form-checkbox rounded text-pink-600 focus:ring-pink-400" value="french" />
+              <label class="inline-flex items-start space-x-2 text-gray-700 text-sm">
+                <input type="checkbox" class="form-checkbox rounded text-pink-600 focus:ring-pink-400 mt-1" value="french" />
                 <span>French</span>
               </label>
-              <label class="inline-flex items-center space-x-2 text-gray-700 text-sm max-w-xs">
-                <input type="checkbox" class="form-checkbox rounded text-pink-600 focus:ring-pink-400" value="ostalo" />
+              <label class="inline-flex items-start space-x-2 text-gray-700 text-sm max-w-xs">
+                <input type="checkbox" class="form-checkbox rounded text-pink-600 focus:ring-pink-400 mt-1" value="ostalo" />
                 <span>Ostalo (Crtanje, Nakit, 3D, Cat-eye itd)</span>
               </label>
             </div>
@@ -108,7 +108,10 @@
         <textarea id="komentar" class="w-full border border-gray-300 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 bg-white/80 resize-none"></textarea>
       </div>
 
-      <div id="durationDisplay" class="text-center text-sm text-gray-600 font-medium">-</div>
+      <div class="text-center text-sm text-gray-600 font-medium">
+        <div id="durationDisplay">-</div>
+        <div id="priceDisplay">Okvirna cena rada: -</div>
+      </div>
 
       <button type="submit" class="w-full bg-pink-600 text-white py-3 px-4 rounded-xl font-semibold text-sm hover:bg-pink-700 transition duration-200">
         Zakaži
@@ -124,18 +127,31 @@
       "2025-05-25": ["09:00", "12:00", "15:00"]
     };
 
+    const serviceConfig = {
+      noviSet: { duration: 60, price: 3000, showOnlyExactPricing: false },
+      korekcija: { duration: 30, price: 1500, showOnlyExactPricing: true }
+    };
+
     const dateSelect = document.getElementById('date');
     const timeSelect = document.getElementById('time');
     const mainService = document.getElementById('mainService');
     const noviSetOptions = document.getElementById('noviSetOptions');
     const durationDisplay = document.getElementById('durationDisplay');
+    const priceDisplay = document.getElementById('priceDisplay');
+
+    function formatDateToSerbian(dateStr) {
+      const days = ['nedelja', 'ponedeljak', 'utorak', 'sreda', 'četvrtak', 'petak', 'subota'];
+      const [year, month, day] = dateStr.split('-').map(Number);
+      const dateObj = new Date(year, month - 1, day);
+      return `${day}. ${dateObj.toLocaleString('sr-RS', { month: 'long' })} (${days[dateObj.getDay()]})`;
+    }
 
     function populateDates() {
       dateSelect.innerHTML = '<option value="" disabled selected hidden></option>';
       Object.keys(availableSlots).forEach(date => {
         const option = document.createElement('option');
         option.value = date;
-        option.textContent = date.split('-').reverse().join('/');
+        option.textContent = formatDateToSerbian(date);
         dateSelect.appendChild(option);
       });
     }
@@ -151,48 +167,57 @@
       });
     }
 
-    dateSelect.addEventListener('change', () => {
-      populateTimes();
-    });
-
-    mainService.addEventListener('change', () => {
-      noviSetOptions.classList.toggle('hidden', mainService.value !== 'noviSet');
-      updateDuration();
-    });
-
-    const durationFactors = () => {
-      let minutes = 0;
-
-      if(mainService.value === "") return 0;
-
-      if(mainService.value === 'noviSet') minutes = 60;
-      else if(mainService.value === 'korekcija') minutes = 30;
-
-      if(mainService.value === 'noviSet') {
+    function durationFactors(baseDuration) {
+      let minutes = baseDuration;
+      if (mainService.value === 'noviSet') {
         const duzina = document.getElementById('duzina')?.value;
         if (duzina === 'srednji' || duzina === 'dugi') minutes += 30;
 
         document.querySelectorAll('#noviSetOptions input[type="checkbox"]:checked').forEach(c => {
-          if (c.value === 'boja') minutes += 15;
-          else if (c.value === 'french') minutes += 10;
-          else if (c.value === 'ostalo') minutes += 20;
+          if (c.value === 'ostalo') minutes += 30;
         });
       }
       return minutes;
-    };
-
-    function updateDuration() {
-      const duration = durationFactors();
-      durationDisplay.textContent = duration ? `Trajanje: ${duration} minuta` : '-';
     }
 
-    document.querySelectorAll('#noviSetOptions select, #noviSetOptions input[type="checkbox"]').forEach(elem => {
-      elem.addEventListener('change', updateDuration);
+    function updateDurationAndPrice() {
+      const service = mainService.value;
+      if (!service || !serviceConfig[service]) {
+        durationDisplay.textContent = '-';
+        priceDisplay.textContent = 'Okvirna cena rada: -';
+        return;
+      }
+
+      const { duration, price, showOnlyExactPricing } = serviceConfig[service];
+      const totalDuration = durationFactors(duration);
+
+      durationDisplay.textContent = `Okvirno trajanje rada: ${totalDuration} minuta`;
+      priceDisplay.textContent = `${showOnlyExactPricing ? 'Cena rada' : 'Okvirna cena rada'}: ${price} RSD`;
+    }
+
+    function bindAllEventListeners() {
+      document.querySelectorAll('#noviSetOptions select, #noviSetOptions input[type="checkbox"]').forEach(elem => {
+        elem.removeEventListener('change', updateDurationAndPrice);
+        elem.addEventListener('change', updateDurationAndPrice);
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      populateDates();
+      updateDurationAndPrice();
+      bindAllEventListeners();
     });
 
-    // Initialize
-    populateDates();
-    updateDuration();
+    dateSelect.addEventListener('change', populateTimes);
+
+    mainService.addEventListener('change', () => {
+      const isNoviSet = mainService.value === 'noviSet';
+      noviSetOptions.classList.toggle('hidden', !isNoviSet);
+      updateDurationAndPrice();
+      if (isNoviSet) {
+        setTimeout(bindAllEventListeners, 0);
+      }
+    });
   </script>
 </body>
 </html>
