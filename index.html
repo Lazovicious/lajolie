@@ -142,7 +142,7 @@
   </div>
 
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.31.0/dist/supabase.min.js"></script>
 
 <script>
   const supabaseUrl = 'https://xkljqcxonrnstuivtihc.supabase.co';
@@ -211,9 +211,8 @@
     if (document.getElementById("french").checked) designOptions.push("French");
     if (document.getElementById("ostalo").checked) designOptions.push("Ostalo");
 
-    // Use supabaseClient here instead of supabase
     const { data, error } = await supabaseClient
-      .from("jolie-t1")
+      .from("jolie_t1")
       .insert([
         {
           name_lastname: document.getElementById("imePrezime").value,
