@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Zakazivanje termina</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
   <style>
     select:invalid {
       color: gray;
@@ -16,6 +17,14 @@
       content: none;
     }
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+<script>
+  const supabase = supabase.createClient(
+    'https://xkljqcxonrnstuivtihc.supabase.co',
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhrbGpxY3hvbnJuc3R1aXZ0aWhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc5MjA3MTQsImV4cCI6MjA2MzQ5NjcxNH0.iL55srspAJd1FMY3HBEdbY2tCysC8rwmEsoxS39yu3Y'
+  );
+</script>
+
 </head>
 <body class="bg-gradient-to-br from-[#f2eaea] to-[#e2d3d3] min-h-screen flex items-center justify-center p-4">
   <div class="bg-white/60 backdrop-blur-md rounded-3xl shadow-2xl w-full max-w-md">
@@ -190,10 +199,36 @@
       timeSelect.appendChild(option);
     });
 
-    document.getElementById("appointmentForm").addEventListener("submit", function (e) {
-      e.preventDefault();
-      document.getElementById("message").textContent = "Uspešno ste zakazali termin!";
-    });
+    document.getElementById("appointmentForm").addEventListener("submit", async function (e) {
+  e.preventDefault();
+
+  const data = {
+    ime_prezime: document.getElementById("imePrezime").value,
+    telefon: document.getElementById("telefon").value,
+    main_service: document.getElementById("mainService").value,
+    vrsta_rada: document.getElementById("noviSetType").value || null,
+    duzina: document.getElementById("duzina").value || null,
+    oblik: document.getElementById("oblik").value || null,
+    boja: document.getElementById("boja").checked,
+    french: document.getElementById("french").checked,
+    ostalo: document.getElementById("ostalo").checked,
+    datum: document.getElementById("date").value,
+    vreme: document.getElementById("time").value,
+    komentar: document.getElementById("komentar").value || null
+  };
+
+  const { error } = await supabase.from('appointments').insert([data]);
+
+  if (error) {
+    document.getElementById("message").textContent = "Greška pri zakazivanju: " + error.message;
+  } else {
+    document.getElementById("message").textContent = "Uspešno ste zakazali termin!";
+    document.getElementById("appointmentForm").reset();
+    durationDisplay.textContent = "-";
+    priceDisplay.textContent = "Okvirna cena rada: -";
+  }
+});
+
   </script>
 </body>
 </html>
