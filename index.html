@@ -41,7 +41,7 @@
 
         <div>
           <label for="telefon" class="block mb-2 text-sm font-medium">Broj telefona</label>
-          <input type="tel" id="telefon" name="telefon" pattern="[0-9\s\-+()]{6,}" class="w-full border border-gray-300 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 bg-white/80" required />
+          <input type="tel" id="telefon" name="telefon" class="w-full border border-gray-300 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 bg-white/80" required />
         </div>
 
         <div>
@@ -213,7 +213,7 @@
 
     // Use supabaseClient here instead of supabase
     const { data, error } = await supabaseClient
-      .from("appointments")
+      .from("jolie-t1")
       .insert([
         {
           name_lastname: document.getElementById("imePrezime").value,
