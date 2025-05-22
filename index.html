@@ -211,6 +211,30 @@
     if (document.getElementById("french").checked) designOptions.push("French");
     if (document.getElementById("ostalo").checked) designOptions.push("Ostalo");
 
+
+  const payload = {
+  name_lastname: document.getElementById("imePrezime").value,
+  phone: document.getElementById("telefon").value,
+  main_service: document.getElementById("mainService").value,
+  sub_service: document.getElementById("noviSetType").value || null,
+  length: document.getElementById("duzina").value || null,
+  shape: document.getElementById("oblik").value || null,
+  design: designOptions.length ? designOptions : null,
+  date: document.getElementById("date").value,
+  time: document.getElementById("time").value,
+  notes: document.getElementById("komentar").value
+};
+
+console.log("Submitting to Supabase:", payload);
+
+const { data, error } = await supabaseClient
+  .from("jolie_t1")
+  .insert([payload]);
+
+if (error) {
+  console.error("Supabase insert error:", error.message, error.details, error.hint);
+}
+      
     const { data, error } = await supabaseClient
       .from("jolie_t1")
       .insert([
