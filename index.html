@@ -200,34 +200,40 @@
     });
 
     document.getElementById("appointmentForm").addEventListener("submit", async function (e) {
-  e.preventDefault();
+    e.preventDefault();
 
-  const data = {
-    ime_prezime: document.getElementById("imePrezime").value,
-    telefon: document.getElementById("telefon").value,
-    main_service: document.getElementById("mainService").value,
-    vrsta_rada: document.getElementById("noviSetType").value || null,
-    duzina: document.getElementById("duzina").value || null,
-    oblik: document.getElementById("oblik").value || null,
-    boja: document.getElementById("boja").checked,
-    french: document.getElementById("french").checked,
-    ostalo: document.getElementById("ostalo").checked,
-    datum: document.getElementById("date").value,
-    vreme: document.getElementById("time").value,
-    komentar: document.getElementById("komentar").value || null
-  };
+    const designOptions = [];
+    if (document.getElementById("boja").checked) designOptions.push("Boja");
+    if (document.getElementById("french").checked) designOptions.push("French");
+    if (document.getElementById("ostalo").checked) designOptions.push("Ostalo");
 
-  const { error } = await supabase.from('appointments').insert([data]);
+    const { data, error } = await supabase
+      .from("appointments")
+      .insert([
+        {
+          name_lastname: document.getElementById("imePrezime").value,
+          phone: document.getElementById("telefon").value,
+          main_service: document.getElementById("mainService").value,
+          sub_service: document.getElementById("noviSetType").value || null,
+          length: document.getElementById("duzina").value || null,
+          shape: document.getElementById("oblik").value || null,
+          design: designOptions,
+          date: document.getElementById("date").value,
+          time: document.getElementById("time").value,
+          notes: document.getElementById("komentar").value
+        }
+      ]);
 
-  if (error) {
-    document.getElementById("message").textContent = "Greška pri zakazivanju: " + error.message;
-  } else {
-    document.getElementById("message").textContent = "Uspešno ste zakazali termin!";
-    document.getElementById("appointmentForm").reset();
-    durationDisplay.textContent = "-";
-    priceDisplay.textContent = "Okvirna cena rada: -";
-  }
-});
+    const messageDiv = document.getElementById("message");
+    if (error) {
+      messageDiv.textContent = "Greška pri zakazivanju. Pokušajte ponovo.";
+      messageDiv.classList.add("text-red-600");
+    } else {
+      messageDiv.textContent = "Uspešno ste zakazali termin!";
+      messageDiv.classList.remove("text-red-600");
+      messageDiv.classList.add("text-green-600");
+    }
+  });
 
   </script>
 </body>
