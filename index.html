@@ -167,56 +167,77 @@
       });
     }
 
-    function durationFactors(baseDuration) {
-      let minutes = baseDuration;
-      if (mainService.value === 'noviSet') {
-        const duzina = document.getElementById('duzina')?.value;
-        if (duzina === 'srednji' || duzina === 'dugi') minutes += 30;
-
-        document.querySelectorAll('#noviSetOptions input[type="checkbox"]:checked').forEach(c => {
-          if (c.value === 'ostalo') minutes += 30;
-        });
-      }
-      return minutes;
-    }
-
     function updateDurationAndPrice() {
-      const service = mainService.value;
-      if (!service || !serviceConfig[service]) {
+      const serviceKey = mainService.value;
+      if (!serviceKey || !serviceConfig[serviceKey]) {
         durationDisplay.textContent = '-';
         priceDisplay.textContent = 'Okvirna cena rada: -';
         return;
       }
+      const { duration, price, showOnlyExactPricing } = serviceConfig[serviceKey];
 
-      const { duration, price, showOnlyExactPricing } = serviceConfig[service];
-      const totalDuration = durationFactors(duration);
+      let finalDuration = duration;
+      let finalPrice = price;
 
-      durationDisplay.textContent = `Okvirno trajanje rada: ${totalDuration} minuta`;
-      priceDisplay.textContent = `${showOnlyExactPricing ? 'Cena rada' : 'Okvirna cena rada'}: ${price} RSD`;
+      if (!showOnlyExactPricing && serviceKey === 'noviSet') {
+        const duzina = document.getElementById('duzina')?.value;
+        if (duzina === 'srednji' || duzina === 'dugi') finalDuration += 15;
+
+        if (duzina === 'srednji' || duzina === 'dugi') finalPrice += 500;
+
+        document.querySelectorAll('#noviSetOptions input[type="checkbox"]:checked').forEach(c => {
+          if (c.value === 'ostalo') {
+            finalDuration += 15;
+            finalPrice += 800;
+          }
+        });
+      }
+
+      durationDisplay.textContent = `${showOnlyExactPricing ? 'Trajanje' : 'Okvirno trajanje'}: ${finalDuration} min.`;
+      priceDisplay.textContent = `${showOnlyExactPricing ? 'Cena rada' : 'Okvirna cena rada'}: ${finalPrice} RSD`;
     }
-
-    function bindAllEventListeners() {
-      document.querySelectorAll('#noviSetOptions select, #noviSetOptions input[type="checkbox"]').forEach(elem => {
-        elem.removeEventListener('change', updateDurationAndPrice);
-        elem.addEventListener('change', updateDurationAndPrice);
-      });
-    }
-
-    document.addEventListener('DOMContentLoaded', () => {
-      populateDates();
-      updateDurationAndPrice();
-      bindAllEventListeners();
-    });
-
-    dateSelect.addEventListener('change', populateTimes);
 
     mainService.addEventListener('change', () => {
-      const isNoviSet = mainService.value === 'noviSet';
-      noviSetOptions.classList.toggle('hidden', !isNoviSet);
-      updateDurationAndPrice();
-      if (isNoviSet) {
-        setTimeout(bindAllEventListeners, 0);
+      if (mainService.value === 'noviSet') {
+        noviSetOptions.classList.remove('hidden');
+      } else {
+        noviSetOptions.classList.add('hidden');
       }
+      updateDurationAndPrice();
+    });
+
+    document.getElementById('duzina')?.addEventListener('change', updateDurationAndPrice);
+    document.getElementById('noviSetOptions').addEventListener('change', updateDurationAndPrice);
+
+    dateSelect.addEventListener('change', () => {
+      populateTimes();
+    });
+
+    populateDates();
+    updateDurationAndPrice();
+
+    const form = document.getElementById('appointmentForm');
+    const messageDiv = document.getElementById('message');
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const service = mainService.value;
+      const date = dateSelect.value;
+      const time = timeSelect.value;
+
+      if (!service || !date || !time) {
+        messageDiv.textContent = 'Molimo popunite sve obavezne podatke.';
+        messageDiv.style.color = 'red';
+        return;
+      }
+
+      messageDiv.style.color = 'green';
+      messageDiv.textContent = `Uspešno ste zakazali termin za ${formatDateToSerbian(date)} u ${time}. Hvala!`;
+      form.reset();
+      noviSetOptions.classList.add('hidden');
+      timeSelect.innerHTML = '<option value="" disabled selected hidden></option>';
+      durationDisplay.textContent = '-';
+      priceDisplay.textContent = 'Okvirna cena rada: -';
     });
   </script>
 </body>
