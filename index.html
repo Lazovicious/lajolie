@@ -204,53 +204,44 @@
     });
 
     document.getElementById("appointmentForm").addEventListener("submit", async function (e) {
-    e.preventDefault();
+  e.preventDefault();
 
-    const designOptions = [];
-    if (document.getElementById("boja").checked) designOptions.push("Boja");
-    if (document.getElementById("french").checked) designOptions.push("French");
-    if (document.getElementById("ostalo").checked) designOptions.push("Ostalo");
-
+  const designOptions = [];
+  if (document.getElementById("boja").checked) designOptions.push("Boja");
+  if (document.getElementById("french").checked) designOptions.push("French");
+  if (document.getElementById("ostalo").checked) designOptions.push("Ostalo");
 
   const payload = {
-  name_lastname: document.getElementById("imePrezime").value,
-  phone: document.getElementById("telefon").value,
-  main_service: document.getElementById("mainService").value,
-  sub_service: document.getElementById("noviSetType").value || null,
-  length: document.getElementById("duzina").value || null,
-  shape: document.getElementById("oblik").value || null,
-  design: designOptions.length ? designOptions : null,
-  date: document.getElementById("date").value,
-  time: document.getElementById("time").value,
-  notes: document.getElementById("komentar").value
-};
+    name_lastname: document.getElementById("imePrezime").value,
+    phone: document.getElementById("telefon").value,
+    main_service: document.getElementById("mainService").value,
+    sub_service: document.getElementById("noviSetType").value || null,
+    length: document.getElementById("duzina").value || null,
+    shape: document.getElementById("oblik").value || null,
+    design: designOptions.length ? designOptions : null,
+    date: document.getElementById("date").value,
+    time: document.getElementById("time").value,
+    notes: document.getElementById("komentar").value
+  };
 
-console.log("Submitting to Supabase:", payload);
+  console.log("Submitting to Supabase:", payload);
 
-const { data, error } = await supabaseClient
-  .from("jolie_t1")
-  .insert([payload]);
+  const { data, error } = await supabaseClient
+    .from("jolie_t1")
+    .insert([payload]);
 
-if (error) {
-  console.error("Supabase insert error:", error.message, error.details, error.hint);
-}
-      
-    const { data, error } = await supabaseClient
-      .from("jolie_t1")
-      .insert([
-        {
-          name_lastname: document.getElementById("imePrezime").value,
-          phone: document.getElementById("telefon").value,
-          main_service: document.getElementById("mainService").value,
-          sub_service: document.getElementById("noviSetType").value || null,
-          length: document.getElementById("duzina").value || null,
-          shape: document.getElementById("oblik").value || null,
-          design: designOptions,
-          date: document.getElementById("date").value,
-          time: document.getElementById("time").value,
-          notes: document.getElementById("komentar").value
-        }
-      ]);
+  const messageDiv = document.getElementById("message");
+  if (error) {
+    console.error("Supabase insert error:", error.message, error.details, error.hint);
+    messageDiv.textContent = "Greška pri zakazivanju. Pokušajte ponovo.";
+    messageDiv.classList.add("text-red-600");
+    messageDiv.classList.remove("text-green-600");
+  } else {
+    messageDiv.textContent = "Uspešno ste zakazali termin!";
+    messageDiv.classList.remove("text-red-600");
+    messageDiv.classList.add("text-green-600");
+  }
+});
 
     const messageDiv = document.getElementById("message");
     if (error) {
