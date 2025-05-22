@@ -1,15 +1,26 @@
 <!DOCTYPE html>
-<html lang="sr">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Zakazivanje termina</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    select:invalid {
+      color: gray;
+    }
+    option[disabled][hidden] {
+      display: none;
+    }
+    select option:checked::before {
+      content: none;
+    }
+  </style>
 </head>
 <body class="bg-gradient-to-br from-[#f2eaea] to-[#e2d3d3] min-h-screen flex items-center justify-center p-4">
-  <div class="bg-white/60 backdrop-blur-md p-10 rounded-3xl shadow-2xl w-full max-w-md">
+  <div class="bg-white/60 backdrop-blur-md p-8 rounded-3xl shadow-2xl w-full max-w-md">
     <div class="flex justify-center mb-6">
-      <img src="https://i.imgur.com/0sKGZVj.png" alt="Logo greska" class="h-[15rem]" />
+      <img src="https://i.imgur.com/0sKGZVj.png" alt="Logo greska" class="h-[15rem]">
     </div>
     <h1 class="text-3xl font-bold text-gray-800 mb-6 text-center">Zakazivanje termina</h1>
 
@@ -17,7 +28,7 @@
       <div>
         <label for="mainService" class="block mb-2 text-sm font-medium">Šta radimo</label>
         <select id="mainService" name="mainService" class="w-full border border-gray-300 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 bg-white/80" required>
-          <option value="">-</option>
+          <option value="" disabled selected hidden></option>
           <option value="noviSet">Novi set noktiju</option>
           <option value="korekcija">Korekcija</option>
         </select>
@@ -27,7 +38,7 @@
         <div>
           <label class="block mb-2 text-sm font-medium">Tip usluge</label>
           <select id="noviSetType" name="noviSetType" class="w-full border border-gray-300 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 bg-white/80">
-            <option value="">-</option>
+            <option value="" disabled selected hidden></option>
             <option value="sabloni">Izlivanje noktiju šablonima</option>
             <option value="tipsama">Izlivanje noktiju gornjim tipsama</option>
             <option value="nadogradnja">Nadogradnja noktiju</option>
@@ -38,6 +49,7 @@
           <div>
             <label for="duzina" class="block mb-2 text-sm font-medium">Dužina</label>
             <select id="duzina" class="w-full border border-gray-300 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 bg-white/80">
+              <option value="" disabled selected hidden></option>
               <option value="kratki">Kratki</option>
               <option value="srednji">Srednji</option>
               <option value="dugi">Dugi</option>
@@ -47,6 +59,7 @@
           <div>
             <label for="oblik" class="block mb-2 text-sm font-medium">Oblik</label>
             <select id="oblik" class="w-full border border-gray-300 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 bg-white/80">
+              <option value="" disabled selected hidden></option>
               <option value="kocka">Kocka</option>
               <option value="uskaKocka">Uska kocka</option>
               <option value="badem">Badem</option>
@@ -59,17 +72,17 @@
           <div>
             <label class="block mb-2 text-sm font-medium">Dizajn</label>
             <div class="space-y-2">
-              <label class="flex items-center space-x-2">
-                <input type="checkbox" class="form-checkbox rounded text-pink-600 focus:ring-pink-400" value="boja" />
+              <label class="flex items-center justify-between">
                 <span>Boja</span>
+                <input type="checkbox" class="form-checkbox rounded text-pink-600 focus:ring-pink-400" value="boja">
               </label>
-              <label class="flex items-center space-x-2">
-                <input type="checkbox" class="form-checkbox rounded text-pink-600 focus:ring-pink-400" value="french" />
+              <label class="flex items-center justify-between">
                 <span>French</span>
+                <input type="checkbox" class="form-checkbox rounded text-pink-600 focus:ring-pink-400" value="french">
               </label>
-              <label class="flex items-center space-x-2">
-                <input type="checkbox" class="form-checkbox rounded text-pink-600 focus:ring-pink-400" value="ostalo" />
+              <label class="flex items-center justify-between">
                 <span>Ostalo (Crtanje, Nakit, 3D, Cat-eye itd)</span>
+                <input type="checkbox" class="form-checkbox rounded text-pink-600 focus:ring-pink-400" value="ostalo">
               </label>
             </div>
           </div>
@@ -79,14 +92,14 @@
       <div>
         <label for="date" class="block mb-2 text-sm font-medium">Dan termina</label>
         <select id="date" name="date" class="w-full border border-gray-300 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 bg-white/80" required>
-          <option value="" disabled selected>-</option>
+          <option value="" disabled selected hidden></option>
         </select>
       </div>
 
       <div>
         <label for="time" class="block mb-2 text-sm font-medium">Vreme termina</label>
         <select id="time" name="time" class="w-full border border-gray-300 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 bg-white/80" required>
-          <option value="" disabled selected>-</option>
+          <option value="" disabled selected hidden></option>
         </select>
       </div>
 
@@ -116,31 +129,32 @@
     const mainService = document.getElementById('mainService');
     const noviSetOptions = document.getElementById('noviSetOptions');
     const durationDisplay = document.getElementById('durationDisplay');
+    const form = document.getElementById('appointmentForm');
+    const messageDiv = document.getElementById('message');
 
-    // Populate dates
-    dateSelect.innerHTML = '<option value="" disabled selected>-</option>';
-    Object.keys(availableSlots).forEach(date => {
-      const option = document.createElement('option');
-      option.value = date;
-      // Format date dd/mm/yyyy
-      option.textContent = date.split('-').reverse().join('/');
-      dateSelect.appendChild(option);
-    });
+    function populateDates() {
+      dateSelect.innerHTML = '<option value="" disabled selected hidden></option>';
+      Object.keys(availableSlots).forEach(date => {
+        const option = document.createElement('option');
+        option.value = date;
+        option.textContent = date.split('-').reverse().join('/');
+        dateSelect.appendChild(option);
+      });
+    }
 
-    // Initialize time select with dash
-    timeSelect.innerHTML = '<option value="" disabled selected>-</option>';
+    function populateTimes() {
+      timeSelect.innerHTML = '<option value="" disabled selected hidden></option>';
+      const times = availableSlots[dateSelect.value] || [];
+      times.forEach(time => {
+        const option = document.createElement('option');
+        option.value = time;
+        option.textContent = time;
+        timeSelect.appendChild(option);
+      });
+    }
 
     dateSelect.addEventListener('change', () => {
-      timeSelect.innerHTML = '<option value="" disabled selected>-</option>';
-      const times = availableSlots[dateSelect.value];
-      if (times) {
-        times.forEach(time => {
-          const option = document.createElement('option');
-          option.value = time;
-          option.textContent = time;
-          timeSelect.appendChild(option);
-        });
-      }
+      populateTimes();
     });
 
     mainService.addEventListener('change', () => {
@@ -148,40 +162,80 @@
       updateDuration();
     });
 
-    const updateDuration = () => {
-      if (mainService.value === 'noviSet') {
-        let minutes = 60; // base duration
-        const duzina = document.getElementById('duzina')?.value || 'kratki';
+    const durationFactors = () => {
+      let minutes = 0;
+
+      if(mainService.value === "") return 0;
+
+      if(mainService.value === 'noviSet') minutes = 60;
+      else if(mainService.value === 'korekcija') minutes = 30;
+
+      if(mainService.value === 'noviSet') {
+        const duzina = document.getElementById('duzina')?.value;
         if (duzina === 'srednji' || duzina === 'dugi') minutes += 30;
 
-        const checkedBoxes = Array.from(document.querySelectorAll('#noviSetOptions input[type="checkbox"]:checked'));
-        checkedBoxes.forEach(c => {
+        document.querySelectorAll('#noviSetOptions input[type="checkbox"]:checked').forEach(c => {
           if (c.value === 'ostalo') minutes += 30;
         });
-
-        durationDisplay.textContent = `Trajanje: ~${minutes} min`;
-      } else {
-        durationDisplay.textContent = '-';
       }
+
+      return minutes;
     };
 
-    document.getElementById('duzina').addEventListener('change', updateDuration);
+    const updateDuration = () => {
+      const estimated = durationFactors();
+      durationDisplay.textContent = estimated ? `Trajanje: ~${estimated} min` : '-';
+    };
+
+    ['duzina', 'noviSetOptions'].forEach(id => {
+      const el = document.getElementById(id);
+      if(el) el.addEventListener('change', updateDuration);
+    });
+
     document.querySelectorAll('#noviSetOptions input[type="checkbox"]').forEach(el => {
       el.addEventListener('change', updateDuration);
     });
 
-    // On page load, set duration display to "-"
-    durationDisplay.textContent = '-';
-
-    // Show/hide noviSet options on load if needed
-    noviSetOptions.classList.toggle('hidden', mainService.value !== 'noviSet');
-
-    // Optional: form submit handler
-    document.getElementById('appointmentForm').addEventListener('submit', e => {
+    form.addEventListener('submit', e => {
       e.preventDefault();
-      alert('Termin je uspešno zakazan! (simulacija)');
-      // You can replace with actual submission logic
+
+      const service = mainService.value;
+      const date = dateSelect.value;
+      const time = timeSelect.value;
+
+      if(!service || !date || !time) {
+        messageDiv.textContent = "Molimo popunite sva obavezna polja.";
+        messageDiv.style.color = "red";
+        return;
+      }
+
+      // Compose a unique key to check duplicates
+      const bookingKey = `${service}_${date}_${time}`;
+
+      const existingBookings = JSON.parse(localStorage.getItem('bookings') || '[]');
+      if(existingBookings.includes(bookingKey)) {
+        messageDiv.textContent = "Već ste zakazali ovaj termin za odabranu uslugu.";
+        messageDiv.style.color = "red";
+        return;
+      }
+
+      // Save booking
+      existingBookings.push(bookingKey);
+      localStorage.setItem('bookings', JSON.stringify(existingBookings));
+
+      messageDiv.textContent = "Termin uspešno zakazan!";
+      messageDiv.style.color = "green";
+
+      form.reset();
+      noviSetOptions.classList.add('hidden');
+      durationDisplay.textContent = '-';
+
+      // Reset time options as well
+      timeSelect.innerHTML = '<option value="" disabled selected hidden></option>';
     });
+
+    // Init
+    populateDates();
   </script>
 </body>
 </html>
