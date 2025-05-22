@@ -242,18 +242,6 @@
     messageDiv.classList.add("text-green-600");
   }
 });
-
-    const messageDiv = document.getElementById("message");
-    if (error) {
-      messageDiv.textContent = "Greška pri zakazivanju. Pokušajte ponovo.";
-      messageDiv.classList.add("text-red-600");
-      messageDiv.classList.remove("text-green-600");
-    } else {
-      messageDiv.textContent = "Uspešno ste zakazali termin!";
-      messageDiv.classList.remove("text-red-600");
-      messageDiv.classList.add("text-green-600");
-    }
-  });
 </script>
 </body>
 </html>
