@@ -71,18 +71,18 @@
 
           <div>
             <label class="block mb-2 text-sm font-medium">Dizajn</label>
-            <div class="space-y-2">
-              <label class="flex items-center justify-between">
+            <div class="flex gap-6">
+              <label class="inline-flex items-center space-x-2 text-gray-700 text-sm">
+                <input type="checkbox" class="form-checkbox rounded text-pink-600 focus:ring-pink-400" value="boja" />
                 <span>Boja</span>
-                <input type="checkbox" class="form-checkbox rounded text-pink-600 focus:ring-pink-400" value="boja">
               </label>
-              <label class="flex items-center justify-between">
+              <label class="inline-flex items-center space-x-2 text-gray-700 text-sm">
+                <input type="checkbox" class="form-checkbox rounded text-pink-600 focus:ring-pink-400" value="french" />
                 <span>French</span>
-                <input type="checkbox" class="form-checkbox rounded text-pink-600 focus:ring-pink-400" value="french">
               </label>
-              <label class="flex items-center justify-between">
+              <label class="inline-flex items-center space-x-2 text-gray-700 text-sm max-w-xs">
+                <input type="checkbox" class="form-checkbox rounded text-pink-600 focus:ring-pink-400" value="ostalo" />
                 <span>Ostalo (Crtanje, Nakit, 3D, Cat-eye itd)</span>
-                <input type="checkbox" class="form-checkbox rounded text-pink-600 focus:ring-pink-400" value="ostalo">
               </label>
             </div>
           </div>
@@ -129,8 +129,6 @@
     const mainService = document.getElementById('mainService');
     const noviSetOptions = document.getElementById('noviSetOptions');
     const durationDisplay = document.getElementById('durationDisplay');
-    const form = document.getElementById('appointmentForm');
-    const messageDiv = document.getElementById('message');
 
     function populateDates() {
       dateSelect.innerHTML = '<option value="" disabled selected hidden></option>';
@@ -175,67 +173,26 @@
         if (duzina === 'srednji' || duzina === 'dugi') minutes += 30;
 
         document.querySelectorAll('#noviSetOptions input[type="checkbox"]:checked').forEach(c => {
-          if (c.value === 'ostalo') minutes += 30;
+          if (c.value === 'boja') minutes += 15;
+          else if (c.value === 'french') minutes += 10;
+          else if (c.value === 'ostalo') minutes += 20;
         });
       }
-
       return minutes;
     };
 
-    const updateDuration = () => {
-      const estimated = durationFactors();
-      durationDisplay.textContent = estimated ? `Trajanje: ~${estimated} min` : '-';
-    };
+    function updateDuration() {
+      const duration = durationFactors();
+      durationDisplay.textContent = duration ? `Trajanje: ${duration} minuta` : '-';
+    }
 
-    ['duzina', 'noviSetOptions'].forEach(id => {
-      const el = document.getElementById(id);
-      if(el) el.addEventListener('change', updateDuration);
+    document.querySelectorAll('#noviSetOptions select, #noviSetOptions input[type="checkbox"]').forEach(elem => {
+      elem.addEventListener('change', updateDuration);
     });
 
-    document.querySelectorAll('#noviSetOptions input[type="checkbox"]').forEach(el => {
-      el.addEventListener('change', updateDuration);
-    });
-
-    form.addEventListener('submit', e => {
-      e.preventDefault();
-
-      const service = mainService.value;
-      const date = dateSelect.value;
-      const time = timeSelect.value;
-
-      if(!service || !date || !time) {
-        messageDiv.textContent = "Molimo popunite sva obavezna polja.";
-        messageDiv.style.color = "red";
-        return;
-      }
-
-      // Compose a unique key to check duplicates
-      const bookingKey = `${service}_${date}_${time}`;
-
-      const existingBookings = JSON.parse(localStorage.getItem('bookings') || '[]');
-      if(existingBookings.includes(bookingKey)) {
-        messageDiv.textContent = "Već ste zakazali ovaj termin za odabranu uslugu.";
-        messageDiv.style.color = "red";
-        return;
-      }
-
-      // Save booking
-      existingBookings.push(bookingKey);
-      localStorage.setItem('bookings', JSON.stringify(existingBookings));
-
-      messageDiv.textContent = "Termin uspešno zakazan!";
-      messageDiv.style.color = "green";
-
-      form.reset();
-      noviSetOptions.classList.add('hidden');
-      durationDisplay.textContent = '-';
-
-      // Reset time options as well
-      timeSelect.innerHTML = '<option value="" disabled selected hidden></option>';
-    });
-
-    // Init
+    // Initialize
     populateDates();
+    updateDuration();
   </script>
 </body>
 </html>
