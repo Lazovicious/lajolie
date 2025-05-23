@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Admin Panel - Availability</title>
+  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.css" rel="stylesheet">
+  <style>
+    body { font-family: sans-serif; margin: 20px; }
+    #calendar { max-width: 900px; margin: auto; }
+    .fc-event.available { background-color: #28a745; border: none; }
+    .fc-event.booked { background-color: #dc3545; border: none; }
+  </style>
+</head>
+<body>
+  <h2>Admin: Manage Available Time Slots</h2>
+  <div id="calendar"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
+  <script>
+    // 🔐 Simple password prompt (replace with real security later)
+    const ACCESS_KEY = 'admindjule'; // Change this
+    const userKey = prompt("Enter admin key:");
+    if (userKey !== ACCESS_KEY) {
+      document.body.innerHTML = "<h2>Access Denied</h2>";
+      throw new Error("Unauthorized");
+    }
+
+    // 🔗 Supabase setup
+    const supabase = supabase.createClient(
+      'https://xkljqcxonrnstuivtihc.supabase.co',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhrbGpxY3hvbnJuc3R1aXZ0aWhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc5MjA3MTQsImV4cCI6MjA2MzQ5NjcxNH0.iL55srspAJd1FMY3HBEdbY2tCysC8rwmEsoxS39yu3Y'
+    );
+
+    document.addEventListener('DOMContentLoaded', async function () {
+      const calendarEl = document.getElementById('calendar');
+
+      const calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'dayGridMonth',
+        selectable: true,
+        editable: false,
+        eventClick: async function (info) {
+          const id = info.event.extendedProps.slotId;
+          const type = info.event.extendedProps.type;
+
+          if (type === 'booked') {
+            alert("This slot is already booked.");
+            return;
+          }
+
+          if (confirm("Do you want to delete this available slot?")) {
+            await supabase.from('availability_slots').delete().eq('id', id);
+            calendar.refetchEvents();
+          }
+        },
+        dateClick: async function (info) {
+          const time = prompt("Enter time for availability (HH:MM):");
+          if (!time) return;
+
+          const { data, error } = await supabase.from('availability_slots').insert({
+            date: info.dateStr,
+            time: time,
+            status: 'available'
+          });
+
+          if (error) {
+            console.error("Insert error:", error);
+            alert("Failed to add slot.");
+          } else {
+            calendar.refetchEvents();
+          }
+        },
+        events: async function (fetchInfo, successCallback, failureCallback) {
+          try {
+            const [availabilityRes, bookingsRes] = await Promise.all([
+              supabase.from('availability_slots').select('*'),
+              supabase.from('jolie_t1').select('date, time')
+            ]);
+
+            const availability = (availabilityRes.data || []).map(slot => ({
+              title: slot.time,
+              start: `${slot.date}T${slot.time}`,
+              className: 'available',
+              slotId: slot.id,
+              type: 'available'
+            }));
+
+            const booked = (bookingsRes.data || []).map(appt => ({
+              title: appt.time,
+              start: `${appt.date}T${appt.time}`,
+              className: 'booked',
+              type: 'booked'
+            }));
+
+            successCallback([...availability, ...booked]);
+          } catch (err) {
+            console.error(err);
+            failureCallback(err);
+          }
+        }
+      });
+
+      calendar.render();
+    });
+  </script>
+</body>
+</html>
