@@ -153,10 +153,11 @@
       const APPOINTMENTS_TABLE = 'appointments';
 
       const TIME_SLOTS = [];
-      for (let h = 8; h <= 20; h++) {
+      for (let h = 6; h <= 24; h++) {
         TIME_SLOTS.push(`${h.toString().padStart(2, '0')}:00`);
-        if (h < 20) TIME_SLOTS.push(`${h.toString().padStart(2, '0')}:30`);
+        if (h < 24) TIME_SLOTS.push(`${h.toString().padStart(2, '0')}:30`);
       }
+      TIME_SLOTS.push('00:30'); // Add 00:30 for 1:00 AM
       console.log('TIME_SLOTS:', TIME_SLOTS);
 
       function getMonday(d) {
@@ -178,10 +179,10 @@
         return dates;
       }
 
-      // Generate weeks from May 2024 to April 2026
+      // Generate weeks from May 24, 2025 to May 24, 2026
       const weeks = [];
-      let current = new Date('2024-05-01');
-      const end = new Date('2026-04-30');
+      let current = new Date('2025-05-24');
+      const end = new Date('2026-05-24');
       while (current <= end) {
         weeks.push(new Date(current));
         current.setDate(current.getDate() + 7);
@@ -201,7 +202,7 @@
         });
       }
 
-      let datesOfWeek = getWeekDates(new Date());
+      let datesOfWeek = getWeekDates(new Date('2025-05-24')); // Start at current week
 
       function formatDate(d) {
         return d.toISOString().slice(0, 10);
@@ -509,7 +510,7 @@
         const currentMonday = datesOfWeek[0];
         const prevMonday = new Date(currentMonday);
         prevMonday.setDate(currentMonday.getDate() - 7);
-        if (prevMonday >= new Date('2024-05-01')) {
+        if (prevMonday >= new Date('2025-05-24')) {
           datesOfWeek = getWeekDates(prevMonday);
           document.getElementById('weekSelect').value = formatDate(prevMonday);
           await initializeSlots();
@@ -524,7 +525,7 @@
         const currentMonday = datesOfWeek[0];
         const nextMonday = new Date(currentMonday);
         nextMonday.setDate(currentMonday.getDate() + 7);
-        if (nextMonday <= new Date('2026-04-30')) {
+        if (nextMonday <= new Date('2026-05-24')) {
           datesOfWeek = getWeekDates(nextMonday);
           document.getElementById('weekSelect').value = formatDate(nextMonday);
           await initializeSlots();
