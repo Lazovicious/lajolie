@@ -176,34 +176,40 @@
 
       async function initializeSlots() {
         const dateStrings = datesOfWeek.map(formatDate);
-        const existingSlots = await supabaseClient
+        const { data: existingSlots, error } = await supabaseClient
           .from(APPOINTMENTS_TABLE)
           .select('date, time')
           .in('date', dateStrings);
 
-        if (existingSlots.error) {
-          console.error('Error checking existing slots:', existingSlots.error);
+        if (error) {
+          console.error('Error checking existing slots:', error);
+          showMessage(`Greška pri proveri slotova: ${error.message}`, true);
           return;
         }
 
-        const existing = new Set(existingSlots.data.map(s => `${s.date}|${s.time}`));
+        const existing = new Set(existingSlots.map(s => `${s.date.split('T')[0]}|${s.time}`));
         const slotsToInsert = [];
 
         datesOfWeek.forEach(day => {
           const dayStr = formatDate(day);
           TIME_SLOTS.forEach(time => {
             if (!existing.has(`${dayStr}|${time}`)) {
-              slotsToInsert.push({ date: dayStr, time, is_booked: false, available: false });
+              // Set some slots as available for testing
+              const isAvailable = dayStr === '2025-05-23' && ['10:00', '10:30', '11:00'].includes(time);
+              slotsToInsert.push({ date: dayStr, time, is_booked: false, available: isAvailable });
             }
           });
         });
 
         if (slotsToInsert.length > 0) {
-          const { error } = await supabaseClient
+          const { error: insertError } = await supabaseClient
             .from(APPOINTMENTS_TABLE)
             .insert(slotsToInsert);
-          if (error) {
-            console.error('Error initializing slots:', error);
+          if (insertError) {
+            console.error('Error initializing slots:', insertError);
+            showMessage(`Greška pri inicijalizaciji slotova: ${insertError.message}`, true);
+          } else {
+            console.log(`Initialized ${slotsToInsert.length} new slots`);
           }
         }
       }
@@ -221,18 +227,36 @@
           return null;
         }
 
-        console.log('Loaded appointments data:', data);
-        return data;
+        // Normalize dates to YYYY-MM-DD
+        const normalizedData = data.map(row => ({
+          ...row,
+          date: row.date.split('T')[0]
+        }));
+
+        console.log('Loaded and normalized appointments data:', normalizedData);
+        return normalizedData;
       }
 
       function buildSlotMap(data) {
         const map = {};
-        data.forEach(row => {
-          const dateStr = row.date.split('T')[0];
-          if (!map[dateStr]) map[dateStr] = {};
+        datesOfWeek.forEach(day => {
+          const dateStr = formatDate(day);
+          map[dateStr] = {};
+          TIME_SLOTS.forEach(time => {
+            map[dateStr][time] = 'blocked'; // Default to blocked
+          });
+        });
 
+        const unmatchedRows = [];
+        data.forEach(row => {
+          const dateStr = row.date;
+          const time = row.time;
+          if (!map[dateStr] || !map[dateStr][time]) {
+            unmatchedRows.push(row);
+            return;
+          }
           if (row.is_booked && row.name_lastname) {
-            const startMinutes = timeToMinutes(row.time);
+            const startMinutes = timeToMinutes(time);
             const duration = row.duration || 30;
             const numSlots = Math.ceil(duration / 30);
             for (let i = 0; i < numSlots; i++) {
@@ -242,9 +266,14 @@
               }
             }
           } else {
-            map[dateStr][row.time] = row.is_booked ? 'occupied' : row.available ? 'available' : 'blocked';
+            map[dateStr][time] = row.is_booked ? 'occupied' : row.available ? 'available' : 'blocked';
           }
         });
+
+        if (unmatchedRows.length > 0) {
+          console.warn('Unmatched rows in buildSlotMap:', unmatchedRows);
+        }
+        console.log('Built slot map:', map);
         return map;
       }
 
@@ -369,16 +398,21 @@
         try {
           const { data, error } = await supabaseClient
             .from(APPOINTMENTS_TABLE)
-            .upsert(slotsToSave, { onConflict: ['date', 'time'] })
+            .upsert(slotsToSave, {
+              onConflict: ['date', 'time'],
+              ignoreDuplicates: false
+            })
+            .eq('is_booked', false)
             .select();
 
           if (error) {
             console.error('Upsert error:', error);
             showMessage(
-              `Greška pri čuvanju: ${error.message}. Proverite anon ključ, RLS politike za INSERT/UPDATE, i unique_date_time ograničenje.`,
+              `Greška pri čuvanju: ${error.message}. Proverite anon ključ, RLS politike za UPDATE, i unique_date_time ograničenje.`,
               true
             );
           } else {
+            console.log('Upsert response:', data);
             showMessage('Termini uspešno sačuvani!');
             selectedSlots.clear();
             const data = await loadData();
