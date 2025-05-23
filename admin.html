@@ -52,7 +52,13 @@
       }
 
       const SUPABASE_URL = 'https://xkljqcxonrnstuivtihc.supabase.co';
-      const SUPABASE_ANON_KEY = 'YOUR_ANON_KEY'; // Replace with your anon key
+      const SUPABASE_ANON_KEY = prompt('Unesite Supabase anon ključ:');
+      if (!SUPABASE_ANON_KEY) {
+        document.getElementById('message').textContent = 'Supabase ključ je neophodan za nastavak.';
+        document.getElementById('message').classList.add('text-red-600');
+        return;
+      }
+
       const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
       const APPOINTMENTS_TABLE = 'appointments';
 
@@ -73,7 +79,9 @@
         for (let i = 0; i < 7; i++) {
           const date = new Date(startDate);
           date.setDate(startDate.getDate() + i);
-          dates.push(date.toISOString().slice(0, 10));
+          if (date >= new Date('2025-05-24') && date <= new Date('2026-05-24')) {
+            dates.push(date.toISOString().slice(0, 10));
+          }
         }
 
         const slots = [];
@@ -82,6 +90,8 @@
             slots.push({ date, time: `${time}:00`, available: true, is_booked: false });
           });
         });
+
+        if (slots.length === 0) return;
 
         try {
           const { data, error } = await supabaseClient
@@ -108,13 +118,20 @@
         for (let i = 0; i < 7; i++) {
           const date = new Date(startDate);
           date.setDate(startDate.getDate() + i);
-          dates.push(date.toISOString().slice(0, 10));
+          if (date >= new Date('2025-05-24') && date <= new Date('2026-05-24')) {
+            dates.push(date.toISOString().slice(0, 10));
+          }
           document.getElementById(`day${i}`).textContent = date.toLocaleDateString('sr-RS', { weekday: 'short', day: 'numeric', month: 'short' });
         }
 
         const weekEnd = new Date(startDate);
         weekEnd.setDate(startDate.getDate() + 6);
         document.getElementById('weekDisplay').textContent = `${startDate.toLocaleDateString('sr-RS', { month: 'long', day: 'numeric' })} - ${weekEnd.toLocaleDateString('sr-RS', { month: 'long', day: 'numeric', year: 'numeric' })}`;
+
+        if (dates.length === 0) {
+          document.getElementById('slotsTable').innerHTML = '<tr><td colspan="8" class="text-center p-4">Nema dostupnih datuma u ovom opsegu.</td></tr>';
+          return;
+        }
 
         const { data, error } = await supabaseClient
           .from(APPOINTMENTS_TABLE)
