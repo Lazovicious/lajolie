@@ -7,56 +7,98 @@
   <style>
     body {
       font-family: Arial, sans-serif;
-      padding: 20px;
+      max-width: 900px;
+      margin: 1em auto;
+      padding: 0 1em;
     }
     h1 {
-      margin-bottom: 1rem;
+      text-align: center;
     }
     #calendar {
       display: grid;
       grid-template-columns: repeat(7, 1fr);
-      gap: 10px;
+      gap: 6px;
       margin-top: 20px;
     }
-    .day-header {
+    .day-name {
       font-weight: bold;
       text-align: center;
       padding: 8px 0;
-      background-color: #eee;
+      background: #f0f0f0;
       border-radius: 4px;
     }
-    .time-slot {
-      padding: 10px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      text-align: center;
+    .date-cell {
+      border: 1px solid #ddd;
+      padding: 6px;
       cursor: pointer;
       user-select: none;
-      background-color: #fafafa;
+      min-height: 80px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      border-radius: 6px;
+      background: white;
       transition: background-color 0.3s ease;
     }
-    .time-slot.selected {
-      background-color: #4caf50;
-      color: white;
+    .date-cell.today {
+      border-color: #2a9d8f;
+      box-shadow: 0 0 5px #2a9d8f;
     }
-    .time-slot.booked {
-      background-color: #f44336;
+    .date-cell.disabled {
+      background: #eee;
+      color: #999;
+      cursor: default;
+    }
+    .date-cell.available {
+      background: #90ee90; /* lightgreen */
+    }
+    .date-cell.occupied {
+      background: #e57373; /* light red */
+      cursor: not-allowed;
+    }
+    .slot-list {
+      margin-top: 4px;
+      font-size: 0.8em;
+      width: 100%;
+    }
+    .slot {
+      padding: 2px 4px;
+      border-radius: 3px;
+      margin-bottom: 2px;
+      background: #ccc;
+      text-align: center;
+    }
+    .slot.available {
+      background: #2a9d8f;
+      color: white;
+      cursor: pointer;
+    }
+    .slot.occupied {
+      background: #c62828;
       color: white;
       cursor: not-allowed;
+    }
+    #status {
+      margin-top: 20px;
+      font-weight: bold;
+      text-align: center;
+      color: #555;
     }
   </style>
 </head>
 <body>
   <h1>Admin: Manage Available Time Slots</h1>
 
+  <div id="status">Loading...</div>
   <div id="calendar"></div>
 
-  <!-- Load Supabase JS library BEFORE your script -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/supabase.min.js"></script>
+  <!-- Load Supabase JS v2 (latest stable) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.33.1/dist/supabase.min.js"></script>
 
   <script>
     (async () => {
-      // Prompt for anon key
+      // --- Config ---
       const SUPABASE_URL = 'https://xkljqcxonrnstuivtihc.supabase.co';
       const SUPABASE_ANON_KEY = prompt('Enter Supabase anon key for admin:');
       if (!SUPABASE_ANON_KEY) {
@@ -64,167 +106,228 @@
         return;
       }
 
-      // Initialize Supabase client
-      const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      // Initialize Supabase client (global 'supabase' available from CDN)
+      const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-      // Table names
       const AVAILABILITY_TABLE = 'availability_slots';
       const BOOKINGS_TABLE = 'jolie_t1';
 
-      // Serbian day names Monday to Sunday
-      const dayNames = ['Pon', 'Uto', 'Sre', 'Čet', 'Pet', 'Sub', 'Ned'];
+      // Constants for calendar display
+      const DAY_NAMES_SR = ['PON', 'UTO', 'SRE', 'ČET', 'PET', 'SUB', 'NED'];
 
-      // Get calendar container
-      const calendar = document.getElementById('calendar');
+      // Date/time helpers
+      function formatDateISO(date) {
+        return date.toISOString().slice(0, 10);
+      }
 
-      // Render day headers
-      dayNames.forEach(day => {
-        const header = document.createElement('div');
-        header.className = 'day-header';
-        header.textContent = day;
-        calendar.appendChild(header);
-      });
-
-      // Utility: generate 30-min slots from 09:00 to 18:00 (example)
-      function generateTimeSlots() {
+      // Generate 30-min slots from 08:00 to 20:00
+      function generateDailySlots() {
         const slots = [];
-        for (let hour = 9; hour <= 17; hour++) {
-          slots.push(`${hour.toString().padStart(2,'0')}:00`);
-          slots.push(`${hour.toString().padStart(2,'0')}:30`);
+        for (let h = 8; h <= 19; h++) {
+          slots.push(`${h.toString().padStart(2, '0')}:00`);
+          slots.push(`${h.toString().padStart(2, '0')}:30`);
         }
-        slots.push('18:00'); // last slot
+        slots.push('20:00'); // last slot end
         return slots;
       }
 
-      // Generate 7 days starting today (could be improved to week start Monday)
-      function generateDates() {
-        const dates = [];
-        const today = new Date();
-        for (let i = 0; i < 7; i++) {
-          const d = new Date(today);
-          d.setDate(today.getDate() + i);
-          // Format YYYY-MM-DD
-          const yyyy = d.getFullYear();
-          const mm = (d.getMonth() + 1).toString().padStart(2, '0');
-          const dd = d.getDate().toString().padStart(2, '0');
-          dates.push(`${yyyy}-${mm}-${dd}`);
+      // Fetch availability slots from Supabase for a range of dates
+      async function fetchAvailability(startDate, endDate) {
+        const { data, error } = await supabase
+          .from(AVAILABILITY_TABLE)
+          .select('*')
+          .gte('date', startDate)
+          .lte('date', endDate);
+
+        if (error) {
+          console.error('Error fetching availability:', error);
+          return [];
         }
-        return dates;
+        return data;
       }
 
-      // Render calendar slots grid cells (one per date per time slot)
-      function renderCalendarGrid(dates, times, bookings = [], availability = []) {
-        // After day headers, fill slots (7 days * times.length)
-        for (let i = 0; i < 7; i++) {
-          const date = dates[i];
-          for (const time of times) {
-            const slot = document.createElement('div');
-            slot.className = 'time-slot';
-            slot.textContent = time;
-            slot.dataset.date = date;
-            slot.dataset.time = time;
-
-            // Mark booked slots red (unavailable)
-            if (bookings.some(b => b.date === date && b.time === time)) {
-              slot.classList.add('booked');
-              slot.title = 'Booked';
-              slot.style.cursor = 'not-allowed';
-            }
-
-            // Mark available slots green
-            if (availability.some(a => a.date === date && a.time === time && a.available)) {
-              slot.classList.add('selected');
-              slot.title = 'Available';
-            }
-
-            // Click handler for toggling availability
-            slot.addEventListener('click', async () => {
-              if (slot.classList.contains('booked')) return; // no change on booked
-
-              const isSelected = slot.classList.contains('selected');
-              const date = slot.dataset.date;
-              const time = slot.dataset.time;
-
-              if (isSelected) {
-                // Remove availability in supabase
-                const { error } = await supabase
-                  .from(AVAILABILITY_TABLE)
-                  .delete()
-                  .eq('date', date)
-                  .eq('time', time);
-                if (error) {
-                  alert('Error removing availability: ' + error.message);
-                  return;
-                }
-                slot.classList.remove('selected');
-                slot.title = '';
-              } else {
-                // Insert availability in supabase
-                const { error } = await supabase
-                  .from(AVAILABILITY_TABLE)
-                  .insert([{ date, time, available: true }]);
-                if (error) {
-                  alert('Error adding availability: ' + error.message);
-                  return;
-                }
-                slot.classList.add('selected');
-                slot.title = 'Available';
-              }
-            });
-
-            calendar.appendChild(slot);
-          }
-        }
-      }
-
-      // Fetch booked appointments from BOOKINGS_TABLE
-      async function fetchBookings() {
+      // Fetch booked slots from bookings table for date range
+      async function fetchBookedSlots(startDate, endDate) {
         const { data, error } = await supabase
           .from(BOOKINGS_TABLE)
           .select('date,time')
-          .gte('date', new Date().toISOString().split('T')[0]); // from today forward
+          .gte('date', startDate)
+          .lte('date', endDate);
+
         if (error) {
-          alert('Error loading bookings: ' + error.message);
+          console.error('Error fetching booked slots:', error);
           return [];
         }
-        return data || [];
+        return data;
       }
 
-      // Fetch available slots from AVAILABILITY_TABLE
-      async function fetchAvailability() {
-        const { data, error } = await supabase
-          .from(AVAILABILITY_TABLE)
-          .select('date,time,available')
-          .gte('date', new Date().toISOString().split('T')[0]);
-        if (error) {
-          alert('Error loading availability: ' + error.message);
-          return [];
+      // Insert or delete availability slot on toggle
+      async function toggleAvailability(date, time, currentlyAvailable) {
+        if (currentlyAvailable) {
+          // Delete slot
+          const { error } = await supabase
+            .from(AVAILABILITY_TABLE)
+            .delete()
+            .eq('date', date)
+            .eq('time', time);
+
+          if (error) {
+            alert('Error deleting slot: ' + error.message);
+          } else {
+            console.log(`Deleted availability slot: ${date} ${time}`);
+          }
+          return !currentlyAvailable;
+        } else {
+          // Insert slot
+          const { error } = await supabase
+            .from(AVAILABILITY_TABLE)
+            .insert([{ date, time, available: true }]);
+
+          if (error) {
+            alert('Error adding slot: ' + error.message);
+          } else {
+            console.log(`Added availability slot: ${date} ${time}`);
+          }
+          return !currentlyAvailable;
         }
-        return data || [];
       }
 
-      // Main load function
-      async function loadCalendar() {
-        calendar.innerHTML = '';
-        // Render headers again
-        dayNames.forEach(day => {
-          const header = document.createElement('div');
-          header.className = 'day-header';
-          header.textContent = day;
-          calendar.appendChild(header);
-        });
+      // Render the calendar UI with days and slots
+      async function renderCalendar(monthDate) {
+        const calendarEl = document.getElementById('calendar');
+        calendarEl.innerHTML = '';
 
-        const dates = generateDates();
-        const times = generateTimeSlots();
+        // Show day names
+        for (let i = 0; i < 7; i++) {
+          const dayNameEl = document.createElement('div');
+          dayNameEl.className = 'day-name';
+          dayNameEl.textContent = DAY_NAMES_SR[i];
+          calendarEl.appendChild(dayNameEl);
+        }
 
-        const bookings = await fetchBookings();
-        const availability = await fetchAvailability();
+        // Compute first day of month and number of days
+        const year = monthDate.getFullYear();
+        const month = monthDate.getMonth();
 
-        renderCalendarGrid(dates, times, bookings, availability);
+        const firstOfMonth = new Date(year, month, 1);
+        const firstWeekDay = (firstOfMonth.getDay() + 6) % 7; // Convert Sunday=0 to Serbian Monday=0
+
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+        // Date range for fetching availability/bookings
+        const startDate = formatDateISO(firstOfMonth);
+        const lastOfMonth = new Date(year, month, daysInMonth);
+        const endDate = formatDateISO(lastOfMonth);
+
+        // Fetch availability and bookings for entire month
+        const availabilitySlots = await fetchAvailability(startDate, endDate);
+        const bookedSlots = await fetchBookedSlots(startDate, endDate);
+
+        // Create empty slots map for quick lookup
+        const availabilityMap = new Map(); // key: 'YYYY-MM-DD|HH:MM' -> true
+        for (const slot of availabilitySlots) {
+          availabilityMap.set(`${slot.date}|${slot.time}`, slot.available);
+        }
+
+        const bookedMap = new Map(); // key: 'YYYY-MM-DD|HH:MM' -> true
+        for (const b of bookedSlots) {
+          bookedMap.set(`${b.date}|${b.time}`, true);
+        }
+
+        // Add empty cells before first day
+        for (let i = 0; i < firstWeekDay; i++) {
+          const emptyCell = document.createElement('div');
+          emptyCell.className = 'date-cell disabled';
+          calendarEl.appendChild(emptyCell);
+        }
+
+        // Generate slots array for each day
+        const daySlots = generateDailySlots();
+
+        // For each day in month, create a cell
+        for (let day = 1; day <= daysInMonth; day++) {
+          const dateObj = new Date(year, month, day);
+          const isoDate = formatDateISO(dateObj);
+
+          const dayCell = document.createElement('div');
+          dayCell.className = 'date-cell';
+          if (isoDate === formatDateISO(new Date())) {
+            dayCell.classList.add('today');
+          }
+
+          // Add date number
+          const dateLabel = document.createElement('div');
+          dateLabel.textContent = day;
+          dayCell.appendChild(dateLabel);
+
+          // Slot container
+          const slotList = document.createElement('div');
+          slotList.className = 'slot-list';
+
+          // Add slots
+          for (let i = 0; i < daySlots.length - 1; i++) {
+            // e.g. '08:00', next slot '08:30'
+            const slotStart = daySlots[i];
+            // Check if booked
+            const isBooked = bookedMap.has(`${isoDate}|${slotStart}`);
+            // Check if available
+            const isAvailable = availabilityMap.get(`${isoDate}|${slotStart}`) === true;
+
+            const slotEl = document.createElement('div');
+            slotEl.classList.add('slot');
+            slotEl.textContent = slotStart;
+
+            if (isBooked) {
+              slotEl.classList.add('occupied');
+              slotEl.title = 'Zakazano';
+            } else if (isAvailable) {
+              slotEl.classList.add('available');
+              slotEl.title = 'Dostupno - klik za uklanjanje';
+              // Click to remove availability
+              slotEl.addEventListener('click', async () => {
+                slotEl.textContent = '...';
+                const success = await toggleAvailability(isoDate, slotStart, true);
+                if (success === false) {
+                  alert('Greška pri uklanjanju dostupnog termina.');
+                } else {
+                  slotEl.classList.remove('available');
+                  slotEl.textContent = slotStart;
+                }
+              });
+            } else {
+              slotEl.title = 'Klik za dodavanje dostupnog termina';
+              // Click to add availability
+              slotEl.addEventListener('click', async () => {
+                slotEl.textContent = '...';
+                const success = await toggleAvailability(isoDate, slotStart, false);
+                if (success === false) {
+                  alert('Greška pri dodavanju dostupnog termina.');
+                } else {
+                  slotEl.classList.add('available');
+                  slotEl.textContent = slotStart;
+                }
+              });
+            }
+
+            slotList.appendChild(slotEl);
+          }
+
+          dayCell.appendChild(slotList);
+          calendarEl.appendChild(dayCell);
+        }
+
+        // Update status
+        document.getElementById('status').textContent = `Prikaz kalendara za ${year}-${(month+1).toString().padStart(2,'0')}`;
       }
 
-      await loadCalendar();
-
+      // Kickoff
+      try {
+        const today = new Date();
+        await renderCalendar(today);
+      } catch (err) {
+        console.error('Fatal error rendering calendar:', err);
+        document.getElementById('status').textContent = 'Greška pri učitavanju kalendara.';
+      }
     })();
   </script>
 </body>
