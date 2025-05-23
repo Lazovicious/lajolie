@@ -2,107 +2,167 @@
 <html lang="sr">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Admin: Manage Available Time Slots</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Admin: Manage Time Slots</title>
   <style>
     body {
-      font-family: Arial, sans-serif;
-      max-width: 900px;
-      margin: 20px auto;
-      padding: 0 10px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      margin: 0;
+      padding: 16px;
+      background-color: #f5f5f5;
+      color: #333;
     }
     h1 {
+      font-size: 1.5rem;
       text-align: center;
+      margin-bottom: 16px;
     }
     .calendar {
       display: flex;
-      flex-wrap: wrap;
-      gap: 4px;
-      margin-top: 20px;
-      user-select: none;
+      flex-direction: column;
+      gap: 8px;
     }
     .day-column {
-      flex: 1;
-      min-width: 120px;
-      border: 1px solid #ddd;
-      border-radius: 6px;
-      padding: 6px;
-      display: flex;
-      flex-direction: column;
+      background-color: white;
+      border-radius: 12px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
     }
     .day-header {
-      font-weight: bold;
-      text-align: center;
-      margin-bottom: 8px;
-      font-size: 1.1em;
+      font-size: 1.1rem;
+      font-weight: 600;
+      padding: 12px;
+      background-color: #f0f0f0;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .day-header::after {
+      content: '▼';
+      font-size: 0.8rem;
+      transition: transform 0.3s;
+    }
+    .day-header.collapsed::after {
+      transform: rotate(180deg);
+    }
+    .time-slots {
+      padding: 8px;
+      display: none;
+    }
+    .time-slots.visible {
+      display: block;
     }
     .time-slot {
-      margin: 3px 0;
-      padding: 5px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 0.9em;
+      padding: 12px;
+      margin: 4px 0;
+      border-radius: 8px;
+      font-size: 1rem;
       text-align: center;
-      background-color: #eee;
-      transition: background-color 0.3s;
+      cursor: pointer;
+      transition: background-color 0.2s;
+      -webkit-tap-highlight-color: transparent;
     }
     .time-slot.available {
-      background-color: #b3e6b3;
+      background-color: #d4f4d4;
+      color: #2e7d32;
     }
     .time-slot.occupied {
-      background-color: #e68a8a;
+      background-color: #ffcdd2;
+      color: #c62828;
       cursor: not-allowed;
-      color: #660000;
+    }
+    .time-slot.blocked {
+      background-color: #e0e0e0;
+      color: #616161;
     }
     .time-slot.selected {
-      background-color: #3399ff;
+      background-color: #42a5f5;
       color: white;
     }
-    .time-slot.unavailable {
-      background-color: #ff6666;
+    .buttons {
+      display: flex;
+      gap: 8px;
+      padding: 16px;
+      position: sticky;
+      bottom: 0;
+      background-color: #f5f5f5;
+    }
+    button {
+      flex: 1;
+      padding: 12px;
+      font-size: 1rem;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    #saveButton {
+      background-color: #1976d2;
+      color: white;
+    }
+    #saveButton:disabled {
+      background-color: #90caf9;
+      cursor: not-allowed;
+    }
+    #clearButton {
+      background-color: #e0e0e0;
+      color: #333;
     }
     .message {
-      margin-top: 10px;
-      font-weight: bold;
       text-align: center;
-      color: green;
+      padding: 12px;
+      font-size: 1rem;
+      color: #2e7d32;
+      display: none;
+    }
+    .message.error {
+      color: #c62828;
+    }
+    .message.visible {
+      display: block;
+    }
+    @media (min-width: 600px) {
+      .calendar {
+        max-width: 500px;
+        margin: 0 auto;
+      }
     }
   </style>
 </head>
 <body>
-  <h1>Admin: Manage Available Time Slots</h1>
+  <h1>Admin: Manage Time Slots</h1>
   <div id="calendar" class="calendar"></div>
   <div id="message" class="message"></div>
+  <div class="buttons">
+    <button id="saveButton" disabled>Save Changes</button>
+    <button id="clearButton">Clear Selection</button>
+  </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <script>
     window.onload = async () => {
       if (typeof supabase === 'undefined') {
-        console.error('Supabase JS not loaded.');
-        alert('Greška: Supabase JS nije učitan. Osvežite stranicu.');
+        showMessage('Error: Supabase JS not loaded.', true);
         return;
       }
 
       const SUPABASE_URL = 'https://xkljqcxonrnstuivtihc.supabase.co';
-      const SUPABASE_ANON_KEY = prompt('Unesite Supabase anon ključ za admin pristup:');
+      const SUPABASE_ANON_KEY = prompt('Enter Supabase anon key for admin access:');
       if (!SUPABASE_ANON_KEY) {
-        alert('Admin ključ je neophodan. Osvežite stranicu da pokušate ponovo.');
+        showMessage('Admin key is required.', true);
         return;
       }
 
       const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-      console.log('Supabase initialized:', supabaseClient);
-
       const AVAILABILITY_TABLE = 'availability_slots';
       const BOOKINGS_TABLE = 'jolie_t1';
-      const DAY_NAMES = ['Ponedeljak', 'Utorak', 'Sreda', 'Četvrtak', 'Petak', 'Subota', 'Nedelja'];
 
       const TIME_SLOTS = [];
-      for (let h = 8; h < 20; h++) {
-        TIME_SLOTS.push(h.toString().padStart(2, '0') + ':00');
-        TIME_SLOTS.push(h.toString().padStart(2, '0') + ':30');
+      for (let h = 8; h <= 20; h++) {
+        TIME_SLOTS.push(`${h.toString().padStart(2, '0')}:00`);
+        if (h < 20) TIME_SLOTS.push(`${h.toString().padStart(2, '0')}:30`);
       }
-      TIME_SLOTS.push('20:00');
 
       function getMonday(d) {
         d = new Date(d);
@@ -124,36 +184,35 @@
         return d.toISOString().slice(0, 10);
       }
 
+      function formatDisplayDate(d) {
+        return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+      }
+
       async function loadData() {
-        const { data: availabilityData, error: availabilityError } = await supabaseClient
-          .from(AVAILABILITY_TABLE)
-          .select('*')
-          .in('date', datesOfWeek.map(formatDate));
-        if (availabilityError) {
-          console.error('Availability error:', availabilityError);
-          alert('Greška pri učitavanju dostupnosti: ' + availabilityError.message);
+        const dateStrings = datesOfWeek.map(formatDate);
+        const [availabilityRes, bookingRes] = await Promise.all([
+          supabaseClient.from(AVAILABILITY_TABLE).select('*').in('date', dateStrings),
+          supabaseClient.from(BOOKINGS_TABLE).select('date,time').in('date', dateStrings)
+        ]);
+
+        if (availabilityRes.error) {
+          showMessage(`Error loading availability: ${availabilityRes.error.message}`, true);
+          return null;
+        }
+        if (bookingRes.error) {
+          showMessage(`Error loading bookings: ${bookingRes.error.message}`, true);
           return null;
         }
 
-        const { data: bookingData, error: bookingError } = await supabaseClient
-          .from(BOOKINGS_TABLE)
-          .select('date,time')
-          .in('date', datesOfWeek.map(formatDate));
-        if (bookingError) {
-          console.error('Booking error:', bookingError);
-          alert('Greška pri učitavanju rezervacija: ' + bookingError.message);
-          return null;
-        }
-
-        console.log('Fetched data:', { availabilityData, bookingData });
-        return { availabilityData, bookingData };
+        return { availabilityData: availabilityRes.data, bookingData: bookingRes.data };
       }
 
       function buildAvailabilityMap(data) {
         const map = {};
         data.forEach(row => {
-          if (!map[row.date]) map[row.date] = {};
-          map[row.date][row.time] = row.available;
+          const dateStr = row.date.split('T')[0];
+          if (!map[dateStr]) map[dateStr] = {};
+          map[dateStr][row.time] = row.is_booked ? 'occupied' : row.available ? 'available' : 'blocked';
         });
         return map;
       }
@@ -161,8 +220,9 @@
       function buildBookingMap(data) {
         const map = {};
         data.forEach(b => {
-          if (!map[b.date]) map[b.date] = {};
-          map[b.date][b.time] = true;
+          const dateStr = b.date.split('T')[0];
+          if (!map[dateStr]) map[dateStr] = {};
+          map[dateStr][b.time] = 'occupied';
         });
         return map;
       }
@@ -173,36 +233,36 @@
         const calendarDiv = document.getElementById('calendar');
         calendarDiv.innerHTML = '';
 
-        for (let i = 0; i < 7; i++) {
-          const dayDate = datesOfWeek[i];
+        datesOfWeek.forEach((dayDate, i) => {
           const dayStr = formatDate(dayDate);
-
           const dayCol = document.createElement('div');
           dayCol.className = 'day-column';
 
           const header = document.createElement('div');
           header.className = 'day-header';
-          header.textContent = DAY_NAMES[i] + ' ' + dayStr;
+          header.textContent = formatDisplayDate(dayDate);
+          header.addEventListener('click', () => {
+            const slotsDiv = dayCol.querySelector('.time-slots');
+            slotsDiv.classList.toggle('visible');
+            header.classList.toggle('collapsed');
+          });
           dayCol.appendChild(header);
+
+          const slotsDiv = document.createElement('div');
+          slotsDiv.className = 'time-slots';
+          if (i === 0) slotsDiv.classList.add('visible');
 
           TIME_SLOTS.forEach(time => {
             const slot = document.createElement('div');
             slot.className = 'time-slot';
             slot.textContent = time;
 
-            const isOccupied = bookingMap[dayStr] && bookingMap[dayStr][time];
-            const isAvailable = availabilityMap[dayStr] && availabilityMap[dayStr][time];
+            const status = bookingMap[dayStr]?.[time] || availabilityMap[dayStr]?.[time] || 'blocked';
+            slot.classList.add(status);
 
-            if (isOccupied) {
-              slot.classList.add('occupied');
-              slot.title = 'Zakazano (ne može se menjati)';
-            } else if (isAvailable) {
-              slot.classList.add('available');
-            }
-
-            if (!isOccupied) {
+            if (status !== 'occupied') {
               slot.addEventListener('click', () => {
-                const key = dayStr + '|' + time + '|true';
+                const key = `${dayStr}|${time}|available`;
                 if (selectedSlots.has(key)) {
                   selectedSlots.delete(key);
                   slot.classList.remove('selected');
@@ -210,94 +270,91 @@
                   selectedSlots.add(key);
                   slot.classList.add('selected');
                 }
-                console.log('Selected slots:', [...selectedSlots]);
+                updateSaveButton();
               });
 
               slot.addEventListener('contextmenu', (e) => {
                 e.preventDefault();
-                if (isAvailable) {
-                  const key = dayStr + '|' + time + '|false';
-                  selectedSlots.add(key);
-                  slot.classList.add('unavailable');
-                  console.log('Marked unavailable:', key);
+                const key = `${dayStr}|${time}|blocked`;
+                if (selectedSlots.has(`${dayStr}|${time}|available`)) {
+                  selectedSlots.delete(`${dayStr}|${time}|available`);
                 }
+                selectedSlots.add(key);
+                slot.classList.add('selected');
+                updateSaveButton();
               });
             }
 
-            dayCol.appendChild(slot);
+            slotsDiv.appendChild(slot);
           });
 
+          dayCol.appendChild(slotsDiv);
           calendarDiv.appendChild(dayCol);
-        }
+        });
+      }
+
+      function updateSaveButton() {
+        const saveButton = document.getElementById('saveButton');
+        saveButton.disabled = selectedSlots.size === 0;
+      }
+
+      function showMessage(text, isError = false) {
+        const messageDiv = document.getElementById('message');
+        messageDiv.textContent = text;
+        messageDiv.classList.toggle('error', isError);
+        messageDiv.classList.add('visible');
+        setTimeout(() => messageDiv.classList.remove('visible'), 3000);
       }
 
       async function saveSelectedSlots() {
         if (selectedSlots.size === 0) {
-          alert('Nema izabranih termina za čuvanje.');
+          showMessage('No slots selected.');
           return;
         }
 
         const slotsToSave = [];
         selectedSlots.forEach(key => {
-          const [date, time, available = 'true'] = key.split('|');
-          slotsToSave.push({ date, time, available: available === 'true' });
+          const [date, time, status] = key.split('|');
+          slotsToSave.push({ date, time, is_booked: false, available: status === 'available' });
         });
 
         const { error } = await supabaseClient
           .from(AVAILABILITY_TABLE)
           .upsert(slotsToSave, { onConflict: ['date', 'time'] });
-        console.log('Upsert response:', { error });
 
         if (error) {
-          alert('Greška prilikom čuvanja: ' + error.message);
+          showMessage(`Error saving slots: ${error.message}`, true);
         } else {
-          document.getElementById('message').textContent = 'Termini sačuvani!';
+          showMessage('Slots saved successfully!');
           selectedSlots.clear();
           const data = await loadData();
           if (data) {
-            const availabilityMap = buildAvailabilityMap(data.availabilityData);
-            renderCalendar(availabilityMap, buildBookingMap(data.bookingData));
+            renderCalendar(buildAvailabilityMap(data.availabilityData), buildBookingMap(data.bookingData));
+            updateSaveButton();
           }
         }
       }
 
-      async function main() {
-        document.getElementById('message').textContent = 'Učitavanje...';
-        const data = await loadData();
-        if (!data) return;
-
-        const availabilityMap = buildAvailabilityMap(data.availabilityData);
-        const bookingMap = buildBookingMap(data.bookingData);
-        console.log('Maps:', { availabilityMap, bookingMap });
-
-        renderCalendar(availabilityMap, bookingMap);
-        document.getElementById('message').textContent = '';
-      }
-
-      // Create buttons
-      const saveBtn = document.createElement('button');
-      saveBtn.textContent = 'Sačuvaj izabrane termine';
-      saveBtn.style.margin = '20px 10px';
-      saveBtn.style.display = 'inline-block';
-      saveBtn.id = 'saveButton';
-      saveBtn.onclick = saveSelectedSlots;
-      document.body.appendChild(saveBtn);
-
-      const clearBtn = document.createElement('button');
-      clearBtn.textContent = 'Poništi izbor';
-      clearBtn.style.margin = '20px 10px';
-      clearBtn.style.display = 'inline-block';
-      clearBtn.onclick = async () => { // Fixed: Added async
+      async function clearSelection() {
         selectedSlots.clear();
         const data = await loadData();
         if (data) {
           renderCalendar(buildAvailabilityMap(data.availabilityData), buildBookingMap(data.bookingData));
-          document.getElementById('message').textContent = 'Izbor poništen.';
+          showMessage('Selection cleared.');
+          updateSaveButton();
         }
-      };
-      document.body.appendChild(clearBtn);
+      }
 
-      await main();
+      // Initialize
+      document.getElementById('saveButton').addEventListener('click', saveSelectedSlots);
+      document.getElementById('clearButton').addEventListener('click', clearSelection);
+
+      showMessage('Loading...');
+      const data = await loadData();
+      if (data) {
+        renderCalendar(buildAvailabilityMap(data.availabilityData), buildBookingMap(data.bookingData));
+        showMessage('');
+      }
     };
   </script>
 </body>
