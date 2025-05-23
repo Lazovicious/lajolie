@@ -8,97 +8,72 @@
     body {
       font-family: Arial, sans-serif;
       max-width: 900px;
-      margin: 1em auto;
-      padding: 0 1em;
+      margin: 20px auto;
+      padding: 0 10px;
     }
     h1 {
       text-align: center;
     }
-    #calendar {
-      display: grid;
-      grid-template-columns: repeat(7, 1fr);
-      gap: 6px;
+    .calendar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
       margin-top: 20px;
-    }
-    .day-name {
-      font-weight: bold;
-      text-align: center;
-      padding: 8px 0;
-      background: #f0f0f0;
-      border-radius: 4px;
-    }
-    .date-cell {
-      border: 1px solid #ddd;
-      padding: 6px;
-      cursor: pointer;
       user-select: none;
-      min-height: 80px;
+    }
+    .day-column {
+      flex: 1;
+      min-width: 120px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      padding: 6px;
       display: flex;
       flex-direction: column;
-      align-items: center;
-      justify-content: flex-start;
-      border-radius: 6px;
-      background: white;
-      transition: background-color 0.3s ease;
     }
-    .date-cell.today {
-      border-color: #2a9d8f;
-      box-shadow: 0 0 5px #2a9d8f;
-    }
-    .date-cell.disabled {
-      background: #eee;
-      color: #999;
-      cursor: default;
-    }
-    .date-cell.available {
-      background: #90ee90; /* lightgreen */
-    }
-    .date-cell.occupied {
-      background: #e57373; /* light red */
-      cursor: not-allowed;
-    }
-    .slot-list {
-      margin-top: 4px;
-      font-size: 0.8em;
-      width: 100%;
-    }
-    .slot {
-      padding: 2px 4px;
-      border-radius: 3px;
-      margin-bottom: 2px;
-      background: #ccc;
-      text-align: center;
-    }
-    .slot.available {
-      background: #2a9d8f;
-      color: white;
-      cursor: pointer;
-    }
-    .slot.occupied {
-      background: #c62828;
-      color: white;
-      cursor: not-allowed;
-    }
-    #status {
-      margin-top: 20px;
+    .day-header {
       font-weight: bold;
       text-align: center;
-      color: #555;
+      margin-bottom: 8px;
+      font-size: 1.1em;
+    }
+    .time-slot {
+      margin: 3px 0;
+      padding: 5px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.9em;
+      text-align: center;
+      background-color: #eee;
+      transition: background-color 0.3s;
+    }
+    .time-slot.available {
+      background-color: #b3e6b3;
+    }
+    .time-slot.occupied {
+      background-color: #e68a8a;
+      cursor: not-allowed;
+      color: #660000;
+    }
+    .time-slot.selected {
+      background-color: #3399ff;
+      color: white;
+    }
+    .message {
+      margin-top: 10px;
+      font-weight: bold;
+      text-align: center;
+      color: green;
     }
   </style>
 </head>
 <body>
   <h1>Admin: Manage Available Time Slots</h1>
+  <div id="calendar" class="calendar"></div>
+  <div id="message" class="message"></div>
 
-  <div id="status">Loading...</div>
-  <div id="calendar"></div>
-
-  <!-- Load Supabase JS v2 (latest stable) -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.33.1/dist/supabase.min.js"></script>
-
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/supabase.min.js"></script>
   <script>
     (async () => {
-      // --- Config ---
       const SUPABASE_URL = 'https://xkljqcxonrnstuivtihc.supabase.co';
       const SUPABASE_ANON_KEY = prompt('Enter Supabase anon key for admin:');
       if (!SUPABASE_ANON_KEY) {
@@ -106,228 +81,210 @@
         return;
       }
 
-      // Initialize Supabase client (global 'supabase' available from CDN)
-      const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      // Correct variable name to avoid shadowing global supabase
+      const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
       const AVAILABILITY_TABLE = 'availability_slots';
       const BOOKINGS_TABLE = 'jolie_t1';
 
-      // Constants for calendar display
-      const DAY_NAMES_SR = ['PON', 'UTO', 'SRE', 'ČET', 'PET', 'SUB', 'NED'];
+      // Serbian day names Monday-Sunday
+      const DAY_NAMES = ['Ponedeljak', 'Utorak', 'Sreda', 'Četvrtak', 'Petak', 'Subota', 'Nedelja'];
 
-      // Date/time helpers
-      function formatDateISO(date) {
-        return date.toISOString().slice(0, 10);
+      // Time slots: 30 min increments from 8:00 to 20:00
+      const TIME_SLOTS = [];
+      for (let hour = 8; hour < 20; hour++) {
+        TIME_SLOTS.push(`${hour.toString().padStart(2, '0')}:00`);
+        TIME_SLOTS.push(`${hour.toString().padStart(2, '0')}:30`);
+      }
+      TIME_SLOTS.push('20:00');
+
+      // We will show one week from today (Monday to Sunday)
+      // To simplify, find this week's Monday and create array of dates for the week
+      function getMonday(d) {
+        d = new Date(d);
+        const day = d.getDay();
+        const diff = (day === 0 ? -6 : 1) - day; // adjust when day is Sunday (0)
+        d.setDate(d.getDate() + diff);
+        return d;
       }
 
-      // Generate 30-min slots from 08:00 to 20:00
-      function generateDailySlots() {
-        const slots = [];
-        for (let h = 8; h <= 19; h++) {
-          slots.push(`${h.toString().padStart(2, '0')}:00`);
-          slots.push(`${h.toString().padStart(2, '0')}:30`);
-        }
-        slots.push('20:00'); // last slot end
-        return slots;
+      const monday = getMonday(new Date());
+      const datesOfWeek = [];
+      for (let i = 0; i < 7; i++) {
+        const date = new Date(monday);
+        date.setDate(monday.getDate() + i);
+        datesOfWeek.push(date);
       }
 
-      // Fetch availability slots from Supabase for a range of dates
-      async function fetchAvailability(startDate, endDate) {
-        const { data, error } = await supabase
+      // Helper to format date as YYYY-MM-DD for supabase and comparisons
+      function formatDate(d) {
+        return d.toISOString().slice(0, 10);
+      }
+
+      // Load availability and bookings from supabase
+      async function loadData() {
+        // Fetch availability_slots for this week
+        const { data: availabilityData, error: availabilityError } = await supabaseClient
           .from(AVAILABILITY_TABLE)
           .select('*')
-          .gte('date', startDate)
-          .lte('date', endDate);
+          .in('date', datesOfWeek.map(formatDate));
 
-        if (error) {
-          console.error('Error fetching availability:', error);
-          return [];
+        if (availabilityError) {
+          alert('Error loading availability: ' + availabilityError.message);
+          return null;
         }
-        return data;
-      }
 
-      // Fetch booked slots from bookings table for date range
-      async function fetchBookedSlots(startDate, endDate) {
-        const { data, error } = await supabase
+        // Fetch bookings for this week
+        const { data: bookingData, error: bookingError } = await supabaseClient
           .from(BOOKINGS_TABLE)
           .select('date,time')
-          .gte('date', startDate)
-          .lte('date', endDate);
+          .in('date', datesOfWeek.map(formatDate));
 
-        if (error) {
-          console.error('Error fetching booked slots:', error);
-          return [];
+        if (bookingError) {
+          alert('Error loading bookings: ' + bookingError.message);
+          return null;
         }
-        return data;
+
+        return { availabilityData, bookingData };
       }
 
-      // Insert or delete availability slot on toggle
-      async function toggleAvailability(date, time, currentlyAvailable) {
-        if (currentlyAvailable) {
-          // Delete slot
-          const { error } = await supabase
-            .from(AVAILABILITY_TABLE)
-            .delete()
-            .eq('date', date)
-            .eq('time', time);
-
-          if (error) {
-            alert('Error deleting slot: ' + error.message);
-          } else {
-            console.log(`Deleted availability slot: ${date} ${time}`);
-          }
-          return !currentlyAvailable;
-        } else {
-          // Insert slot
-          const { error } = await supabase
-            .from(AVAILABILITY_TABLE)
-            .insert([{ date, time, available: true }]);
-
-          if (error) {
-            alert('Error adding slot: ' + error.message);
-          } else {
-            console.log(`Added availability slot: ${date} ${time}`);
-          }
-          return !currentlyAvailable;
-        }
+      // Map availability data into a structure for quick lookup
+      // { "YYYY-MM-DD": { "HH:MM": true/false } }
+      function buildAvailabilityMap(data) {
+        const map = {};
+        data.forEach(row => {
+          if (!map[row.date]) map[row.date] = {};
+          map[row.date][row.time] = row.available;
+        });
+        return map;
       }
 
-      // Render the calendar UI with days and slots
-      async function renderCalendar(monthDate) {
-        const calendarEl = document.getElementById('calendar');
-        calendarEl.innerHTML = '';
+      // Map bookings for quick lookup (booked = occupied)
+      function buildBookingMap(bookings) {
+        const map = {};
+        bookings.forEach(b => {
+          if (!map[b.date]) map[b.date] = {};
+          map[b.date][b.time] = true;
+        });
+        return map;
+      }
 
-        // Show day names
+      // State for selected slots for toggling availability
+      const selectedSlots = new Set();
+
+      // Render calendar grid
+      function renderCalendar(availabilityMap, bookingMap) {
+        const calendarDiv = document.getElementById('calendar');
+        calendarDiv.innerHTML = '';
+
         for (let i = 0; i < 7; i++) {
-          const dayNameEl = document.createElement('div');
-          dayNameEl.className = 'day-name';
-          dayNameEl.textContent = DAY_NAMES_SR[i];
-          calendarEl.appendChild(dayNameEl);
-        }
+          const dayDate = datesOfWeek[i];
+          const dayStr = formatDate(dayDate);
 
-        // Compute first day of month and number of days
-        const year = monthDate.getFullYear();
-        const month = monthDate.getMonth();
+          const dayCol = document.createElement('div');
+          dayCol.className = 'day-column';
 
-        const firstOfMonth = new Date(year, month, 1);
-        const firstWeekDay = (firstOfMonth.getDay() + 6) % 7; // Convert Sunday=0 to Serbian Monday=0
+          const header = document.createElement('div');
+          header.className = 'day-header';
+          header.textContent = DAY_NAMES[i] + ' ' + dayStr;
+          dayCol.appendChild(header);
 
-        const daysInMonth = new Date(year, month + 1, 0).getDate();
+          TIME_SLOTS.forEach(time => {
+            const slot = document.createElement('div');
+            slot.className = 'time-slot';
+            slot.textContent = time;
 
-        // Date range for fetching availability/bookings
-        const startDate = formatDateISO(firstOfMonth);
-        const lastOfMonth = new Date(year, month, daysInMonth);
-        const endDate = formatDateISO(lastOfMonth);
+            const isOccupied = bookingMap[dayStr] && bookingMap[dayStr][time];
+            const isAvailable = availabilityMap[dayStr] && availabilityMap[dayStr][time];
 
-        // Fetch availability and bookings for entire month
-        const availabilitySlots = await fetchAvailability(startDate, endDate);
-        const bookedSlots = await fetchBookedSlots(startDate, endDate);
-
-        // Create empty slots map for quick lookup
-        const availabilityMap = new Map(); // key: 'YYYY-MM-DD|HH:MM' -> true
-        for (const slot of availabilitySlots) {
-          availabilityMap.set(`${slot.date}|${slot.time}`, slot.available);
-        }
-
-        const bookedMap = new Map(); // key: 'YYYY-MM-DD|HH:MM' -> true
-        for (const b of bookedSlots) {
-          bookedMap.set(`${b.date}|${b.time}`, true);
-        }
-
-        // Add empty cells before first day
-        for (let i = 0; i < firstWeekDay; i++) {
-          const emptyCell = document.createElement('div');
-          emptyCell.className = 'date-cell disabled';
-          calendarEl.appendChild(emptyCell);
-        }
-
-        // Generate slots array for each day
-        const daySlots = generateDailySlots();
-
-        // For each day in month, create a cell
-        for (let day = 1; day <= daysInMonth; day++) {
-          const dateObj = new Date(year, month, day);
-          const isoDate = formatDateISO(dateObj);
-
-          const dayCell = document.createElement('div');
-          dayCell.className = 'date-cell';
-          if (isoDate === formatDateISO(new Date())) {
-            dayCell.classList.add('today');
-          }
-
-          // Add date number
-          const dateLabel = document.createElement('div');
-          dateLabel.textContent = day;
-          dayCell.appendChild(dateLabel);
-
-          // Slot container
-          const slotList = document.createElement('div');
-          slotList.className = 'slot-list';
-
-          // Add slots
-          for (let i = 0; i < daySlots.length - 1; i++) {
-            // e.g. '08:00', next slot '08:30'
-            const slotStart = daySlots[i];
-            // Check if booked
-            const isBooked = bookedMap.has(`${isoDate}|${slotStart}`);
-            // Check if available
-            const isAvailable = availabilityMap.get(`${isoDate}|${slotStart}`) === true;
-
-            const slotEl = document.createElement('div');
-            slotEl.classList.add('slot');
-            slotEl.textContent = slotStart;
-
-            if (isBooked) {
-              slotEl.classList.add('occupied');
-              slotEl.title = 'Zakazano';
+            if (isOccupied) {
+              slot.classList.add('occupied');
+              slot.title = 'Zakazano (ne može se menjati)';
+              slot.style.cursor = 'not-allowed';
             } else if (isAvailable) {
-              slotEl.classList.add('available');
-              slotEl.title = 'Dostupno - klik za uklanjanje';
-              // Click to remove availability
-              slotEl.addEventListener('click', async () => {
-                slotEl.textContent = '...';
-                const success = await toggleAvailability(isoDate, slotStart, true);
-                if (success === false) {
-                  alert('Greška pri uklanjanju dostupnog termina.');
+              slot.classList.add('available');
+            }
+
+            // Add click handler only if not occupied
+            if (!isOccupied) {
+              slot.addEventListener('click', () => {
+                const key = dayStr + '|' + time;
+                if (selectedSlots.has(key)) {
+                  selectedSlots.delete(key);
+                  slot.classList.remove('selected');
                 } else {
-                  slotEl.classList.remove('available');
-                  slotEl.textContent = slotStart;
-                }
-              });
-            } else {
-              slotEl.title = 'Klik za dodavanje dostupnog termina';
-              // Click to add availability
-              slotEl.addEventListener('click', async () => {
-                slotEl.textContent = '...';
-                const success = await toggleAvailability(isoDate, slotStart, false);
-                if (success === false) {
-                  alert('Greška pri dodavanju dostupnog termina.');
-                } else {
-                  slotEl.classList.add('available');
-                  slotEl.textContent = slotStart;
+                  selectedSlots.add(key);
+                  slot.classList.add('selected');
                 }
               });
             }
 
-            slotList.appendChild(slotEl);
-          }
+            dayCol.appendChild(slot);
+          });
 
-          dayCell.appendChild(slotList);
-          calendarEl.appendChild(dayCell);
+          calendarDiv.appendChild(dayCol);
+        }
+      }
+
+      // Save selected slots to supabase
+      async function saveSelectedSlots() {
+        if (selectedSlots.size === 0) {
+          alert('Nema izabranih termina za čuvanje.');
+          return;
         }
 
-        // Update status
-        document.getElementById('status').textContent = `Prikaz kalendara za ${year}-${(month+1).toString().padStart(2,'0')}`;
+        const slotsToSave = [];
+        selectedSlots.forEach(key => {
+          const [date, time] = key.split('|');
+          slotsToSave.push({
+            date,
+            time,
+            available: true,
+          });
+        });
+
+        // Upsert new availability
+        const { error } = await supabaseClient
+          .from(AVAILABILITY_TABLE)
+          .upsert(slotsToSave, { onConflict: ['date', 'time'] });
+
+        if (error) {
+          alert('Greška prilikom čuvanja: ' + error.message);
+        } else {
+          document.getElementById('message').textContent = 'Termini sačuvani!';
+          selectedSlots.clear();
+          // Reload data to refresh UI
+          main();
+        }
       }
 
-      // Kickoff
-      try {
-        const today = new Date();
-        await renderCalendar(today);
-      } catch (err) {
-        console.error('Fatal error rendering calendar:', err);
-        document.getElementById('status').textContent = 'Greška pri učitavanju kalendara.';
+      // Main function to load data and render calendar
+      async function main() {
+        document.getElementById('message').textContent = 'Učitavanje...';
+
+        const data = await loadData();
+        if (!data) return;
+
+        const availabilityMap = buildAvailabilityMap(data.availabilityData);
+        const bookingMap = buildBookingMap(data.bookingData);
+
+        renderCalendar(availabilityMap, bookingMap);
+
+        document.getElementById('message').textContent = '';
       }
+
+      // Add Save button below calendar
+      const saveButton = document.createElement('button');
+      saveButton.textContent = 'Sačuvaj izabrane termine';
+      saveButton.style.marginTop = '20px';
+      saveButton.style.padding = '10px 20px';
+      saveButton.style.fontSize = '1em';
+      saveButton.addEventListener('click', saveSelectedSlots);
+      document.body.appendChild(saveButton);
+
+      // Run main on load
+      await main();
+
     })();
   </script>
 </body>
