@@ -40,17 +40,17 @@
       transition: background-color 0.2s;
     }
     .time-slot.available {
-      background-color: #d4f4d4 !important;
+      background-color: #c8e6c9 !important;
       color: #2e7d32 !important;
     }
     .time-slot.occupied {
-      background-color: #ffcdd2 !important;
-      color: #c62828 !important;
+      background-color: #d32f2f !important;
+      color: #ffffff !important;
       cursor: not-allowed;
     }
     .time-slot.blocked {
-      background-color: #e0e0e0 !important;
-      color: #616161 !important;
+      background-color: #424242 !important;
+      color: #ffffff !important;
     }
     .time-slot.selected-available {
       background-color: #a5d6a7 !important;
@@ -184,12 +184,17 @@
 
         if (availabilityRes.error) {
           showMessage(`Greška pri učitavanju dostupnosti: ${availabilityRes.error.message}. Proverite anon ključ i RLS politike za SELECT.`, true);
+          console.error('Availability error:', availabilityRes.error);
           return null;
         }
         if (bookingRes.error) {
           showMessage(`Greška pri učitavanju rezervacija: ${bookingRes.error.message}. Proverite anon ključ i RLS politike za SELECT.`, true);
+          console.error('Booking error:', bookingRes.error);
           return null;
         }
+
+        console.log('Loaded availability data:', availabilityRes.data);
+        console.log('Loaded booking data:', bookingRes.data);
 
         return { availabilityData: availabilityRes.data, bookingData: bookingRes.data };
       }
@@ -261,6 +266,7 @@
             
             const status = bookingMap[dayStr]?.[time] || availabilityMap[dayStr]?.[time] || 'blocked';
             slot.classList.add(status);
+            console.log(`Slot ${dayStr} ${time}: status=${status}`);
 
             // Apply selected state if in selectedSlots
             const availableKey = `${dayStr}|${time}|available`;
@@ -388,6 +394,8 @@
       if (data) {
         renderCalendar(buildAvailabilityMap(data.availabilityData), buildBookingMap(data.bookingData));
         showMessage('');
+      } else {
+        showMessage('Nema podataka. Proverite Supabase konekciju.', true);
       }
     };
   </script>
