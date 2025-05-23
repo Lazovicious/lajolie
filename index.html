@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Zakazivanje Termina</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💅</text></svg>" />
   <style>
     select:invalid {
       color: gray;
@@ -137,7 +138,13 @@
       }
 
       const SUPABASE_URL = 'https://xkljqcxonrnstuivtihc.supabase.co';
-      const SUPABASE_ANON_KEY = 'YOUR_ANON_KEY'; // Replace with your anon key
+      const SUPABASE_ANON_KEY = prompt('Unesite Supabase anon ključ:');
+      if (!SUPABASE_ANON_KEY) {
+        document.getElementById('message').textContent = 'Supabase ključ je neophodan za nastavak.';
+        document.getElementById('message').classList.add('text-red-600');
+        return;
+      }
+
       const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
       const APPOINTMENTS_TABLE = 'appointments';
 
@@ -257,7 +264,7 @@
           return;
         }
 
-        const times = data.map(d => d.time.slice(0, 5)); // Normalize to HH:MM
+        const times = data.map(d => d.time.slice(0, 5));
         const validTimes = times.filter(startTime => {
           const startMinutes = timeToMinutes(startTime);
           const numSlots = Math.ceil(duration / 30);
