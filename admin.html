@@ -131,8 +131,7 @@
       }
 
       const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-      const AVAILABILITY_TABLE = 'availability_slots';
-      const BOOKINGS_TABLE = 'jolie_t1';
+      const APPOINTMENTS_TABLE = 'appointments';
 
       const TIME_SLOTS = [];
       for (let h = 8; h <= 20; h++) {
@@ -175,55 +174,75 @@
         return `${hours}:${mins}`;
       }
 
-      async function loadData() {
+      async function initializeSlots() {
         const dateStrings = datesOfWeek.map(formatDate);
-        const [availabilityRes, bookingRes] = await Promise.all([
-          supabaseClient.from(AVAILABILITY_TABLE).select('*').in('date', dateStrings),
-          supabaseClient.from(BOOKINGS_TABLE).select('date,time,duration').in('date', dateStrings)
-        ]);
+        const existingSlots = await supabaseClient
+          .from(APPOINTMENTS_TABLE)
+          .select('date, time')
+          .in('date', dateStrings);
 
-        if (availabilityRes.error) {
-          showMessage(`Greška pri učitavanju dostupnosti: ${availabilityRes.error.message}. Proverite anon ključ i RLS politike za SELECT.`, true);
-          console.error('Availability error:', availabilityRes.error);
-          return null;
-        }
-        if (bookingRes.error) {
-          showMessage(`Greška pri učitavanju rezervacija: ${bookingRes.error.message}. Proverite anon ključ i RLS politike za SELECT.`, true);
-          console.error('Booking error:', bookingRes.error);
-          return null;
+        if (existingSlots.error) {
+          console.error('Error checking existing slots:', existingSlots.error);
+          return;
         }
 
-        console.log('Loaded availability data:', availabilityRes.data);
-        console.log('Loaded booking data:', bookingRes.data);
+        const existing = new Set(existingSlots.data.map(s => `${s.date}|${s.time}`));
+        const slotsToInsert = [];
 
-        return { availabilityData: availabilityRes.data, bookingData: bookingRes.data };
+        datesOfWeek.forEach(day => {
+          const dayStr = formatDate(day);
+          TIME_SLOTS.forEach(time => {
+            if (!existing.has(`${dayStr}|${time}`)) {
+              slotsToInsert.push({ date: dayStr, time, is_booked: false, available: false });
+            }
+          });
+        });
+
+        if (slotsToInsert.length > 0) {
+          const { error } = await supabaseClient
+            .from(APPOINTMENTS_TABLE)
+            .insert(slotsToInsert);
+          if (error) {
+            console.error('Error initializing slots:', error);
+          }
+        }
       }
 
-      function buildAvailabilityMap(data) {
+      async function loadData() {
+        const dateStrings = datesOfWeek.map(formatDate);
+        const { data, error } = await supabaseClient
+          .from(APPOINTMENTS_TABLE)
+          .select('date, time, is_booked, available, name_lastname, duration')
+          .in('date', dateStrings);
+
+        if (error) {
+          showMessage(`Greška pri učitavanju podataka: ${error.message}. Proverite anon ključ i RLS politike za SELECT.`, true);
+          console.error('Load data error:', error);
+          return null;
+        }
+
+        console.log('Loaded appointments data:', data);
+        return data;
+      }
+
+      function buildSlotMap(data) {
         const map = {};
         data.forEach(row => {
           const dateStr = row.date.split('T')[0];
           if (!map[dateStr]) map[dateStr] = {};
-          map[dateStr][row.time] = row.is_booked ? 'occupied' : row.available ? 'available' : 'blocked';
-        });
-        return map;
-      }
 
-      function buildBookingMap(data) {
-        const map = {};
-        data.forEach(b => {
-          const dateStr = b.date;
-          if (!map[dateStr]) map[dateStr] = {};
-          
-          const startMinutes = timeToMinutes(b.time);
-          const duration = b.duration || 30; // Default to 30 minutes if duration is missing
-          const numSlots = Math.ceil(duration / 30); // Number of 30-minute slots
-
-          for (let i = 0; i < numSlots; i++) {
-            const slotTime = minutesToTime(startMinutes + i * 30);
-            if (TIME_SLOTS.includes(slotTime)) {
-              map[dateStr][slotTime] = 'occupied';
+          if (row.is_booked && row.name_lastname) {
+            const startMinutes = timeToMinutes(row.time);
+            const duration = row.duration || 30;
+            const numSlots = Math.ceil(duration / 30);
+            for (let i = 0; i < numSlots; i++) {
+              const slotTime = minutesToTime(startMinutes + i * 30);
+              if (TIME_SLOTS.includes(slotTime)) {
+                map[dateStr][slotTime] = 'occupied';
+              }
             }
+          } else {
+            map[dateStr][row.time] = row.is_booked ? 'occupied' : row.available ? 'available' : 'blocked';
           }
         });
         return map;
@@ -231,7 +250,7 @@
 
       const selectedSlots = new Set();
 
-      function renderCalendar(availabilityMap, bookingMap) {
+      function renderCalendar(slotMap) {
         const calendarDiv = document.getElementById('calendar');
         calendarDiv.innerHTML = '';
 
@@ -264,11 +283,10 @@
             const slot = document.createElement('div');
             slot.className = 'time-slot';
             
-            const status = bookingMap[dayStr]?.[time] || availabilityMap[dayStr]?.[time] || 'blocked';
+            const status = slotMap[dayStr]?.[time] || 'blocked';
             slot.classList.add(status);
             console.log(`Slot ${dayStr} ${time}: status=${status}`);
 
-            // Apply selected state if in selectedSlots
             const availableKey = `${dayStr}|${time}|available`;
             const blockedKey = `${dayStr}|${time}|blocked`;
             if (selectedSlots.has(availableKey)) {
@@ -350,7 +368,7 @@
 
         try {
           const { data, error } = await supabaseClient
-            .from(AVAILABILITY_TABLE)
+            .from(APPOINTMENTS_TABLE)
             .upsert(slotsToSave, { onConflict: ['date', 'time'] })
             .select();
 
@@ -365,7 +383,7 @@
             selectedSlots.clear();
             const data = await loadData();
             if (data) {
-              renderCalendar(buildAvailabilityMap(data.availabilityData), buildBookingMap(data.bookingData));
+              renderCalendar(buildSlotMap(data));
               updateSaveButton();
             }
           }
@@ -379,7 +397,7 @@
         selectedSlots.clear();
         const data = await loadData();
         if (data) {
-          renderCalendar(buildAvailabilityMap(data.availabilityData), buildBookingMap(data.bookingData));
+          renderCalendar(buildSlotMap(data));
           showMessage('Izbor poništen.');
           updateSaveButton();
         }
@@ -390,9 +408,10 @@
       document.getElementById('clearButton').addEventListener('click', clearSelection);
 
       showMessage('Učitavanje...');
+      await initializeSlots();
       const data = await loadData();
       if (data) {
-        renderCalendar(buildAvailabilityMap(data.availabilityData), buildBookingMap(data.bookingData));
+        renderCalendar(buildSlotMap(data));
         showMessage('');
       } else {
         showMessage('Nema podataka. Proverite Supabase konekciju.', true);
