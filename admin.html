@@ -52,14 +52,22 @@
       }
 
       const SUPABASE_URL = 'https://xkljqcxonrnstuivtihc.supabase.co';
-      const SUPABASE_ANON_KEY = prompt('Unesite Supabase anon ključ:');
+      let SUPABASE_ANON_KEY = localStorage.getItem('supabase_anon_key');
       if (!SUPABASE_ANON_KEY) {
-        document.getElementById('message').textContent = 'Supabase ključ je neophodan za nastavak.';
+        SUPABASE_ANON_KEY = prompt('Unesite Supabase anon ključ:');
+        if (SUPABASE_ANON_KEY && SUPABASE_ANON_KEY.length > 20) {
+          localStorage.setItem('supabase_anon_key', SUPABASE_ANON_KEY);
+        }
+      }
+      if (!SUPABASE_ANON_KEY || SUPABASE_ANON_KEY.length < 20) {
+        document.getElementById('message').textContent = 'Važeći Supabase anon ključ je neophodan za nastavak.';
         document.getElementById('message').classList.add('text-red-600');
         return;
       }
+      console.log('Supabase client initializing with key length:', SUPABASE_ANON_KEY.length);
 
       const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      console.log('Supabase client initialized:', !!supabaseClient);
       const APPOINTMENTS_TABLE = 'appointments';
 
       const TIME_SLOTS = [
@@ -165,18 +173,27 @@
             td.addEventListener('click', async () => {
               if (!slot) return;
               const newAvailable = !slot.available;
-              const { error } = await supabaseClient
-                .from(APPOINTMENTS_TABLE)
-                .update({ available: newAvailable })
-                .eq('date', date)
-                .eq('time', `${time}:00`);
-              if (error) {
-                document.getElementById('message').textContent = `Greška pri ažuriranju: ${error.message}`;
+              console.log('Updating slot:', { date, time, newAvailable });
+              try {
+                const { error } = await supabaseClient
+                  .from(APPOINTMENTS_TABLE)
+                  .update({ available: newAvailable })
+                  .eq('date', date)
+                  .eq('time', `${time}:00`);
+                if (error) {
+                  console.error('Update error:', error);
+                  document.getElementById('message').textContent = `Greška pri ažuriranju: ${error.message}`;
+                  document.getElementById('message').classList.add('text-red-600');
+                } else {
+                  td.classList.toggle('slot-available', newAvailable && !slot.is_booked);
+                  td.classList.toggle('slot-unavailable', !newAvailable);
+                  td.textContent = slot.is_booked ? `${slot.name_lastname || ''}<br>${slot.main_service || ''}` : newAvailable ? 'Slobodno' : 'Zatvoreno';
+                  console.log('Slot updated successfully:', { date, time, newAvailable });
+                }
+              } catch (err) {
+                console.error('Unexpected update error:', err);
+                document.getElementById('message').textContent = 'Neočekivana greška pri ažuriranju.';
                 document.getElementById('message').classList.add('text-red-600');
-              } else {
-                td.classList.toggle('slot-available', newAvailable && !slot.is_booked);
-                td.classList.toggle('slot-unavailable', !newAvailable);
-                td.textContent = slot.is_booked ? `${slot.name_lastname || ''}<br>${slot.main_service || ''}` : newAvailable ? 'Slobodno' : 'Zatvoreno';
               }
             });
             row.appendChild(td);
