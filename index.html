@@ -3,384 +3,343 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Rezervacija Termina - La Jolie</title>
+  <title>Zakazivanje Termina</title>
+  <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 20px auto;
-      max-width: 600px;
-      padding: 0 10px;
-      background-color: #f5f5f5;
-      color: #333;
+    select:invalid {
+      color: gray;
     }
-    h1 {
-      font-size: 1.5rem;
-      text-align: center;
-      margin-bottom: 20px;
-    }
-    .form-group {
-      margin-bottom: 15px;
-    }
-    label {
-      display: block;
-      margin-bottom: 5px;
-      font-weight: bold;
-    }
-    input, select, textarea {
-      width: 100%;
-      padding: 8px;
-      font-size: 1rem;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      box-sizing: border-box;
-    }
-    textarea {
-      resize: vertical;
-      min-height: 100px;
-    }
-    button {
-      display: block;
-      width: 100%;
-      padding: 10px;
-      font-size: 1rem;
-      background-color: #1976d2;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      transition: background-color 0.2s;
-    }
-    button:disabled {
-      background-color: #90caf9;
-      cursor: not-allowed;
-    }
-    .message {
-      text-align: center;
-      padding: 10px;
-      font-size: 1rem;
-      color: #2e7d32;
+    option[disabled][hidden] {
       display: none;
-    }
-    .message.error {
-      color: #c62828;
-    }
-    .message.visible {
-      display: block;
     }
   </style>
 </head>
-<body>
-  <h1>Rezervacija Termina - La Jolie</h1>
-  <form id="bookingForm">
-    <div class="form-group">
-      <label for="name_lastname">Ime i Prezime *</label>
-      <input type="text" id="name_lastname" required />
+<body class="bg-gradient-to-br from-[#f2eaea] to-[#e2d3d3] min-h-screen flex items-center justify-center p-4">
+  <div class="bg-white/80 backdrop-blur-md rounded-2xl shadow-lg w-full max-w-md">
+    <div class="flex justify-center py-4">
+      <img src="https://i.imgur.com/0sKGZVj.png" alt="Logo" class="h-32">
     </div>
-    <div class="form-group">
-      <label for="phone">Telefon *</label>
-      <input type="tel" id="phone" required />
+    <div class="p-6">
+      <h1 class="text-2xl font-bold text-gray-800 mb-6 text-center">Zakazivanje Termina</h1>
+      <form id="appointmentForm" class="space-y-4 text-gray-800">
+        <div>
+          <label for="imePrezime" class="block mb-1 text-sm font-medium">Ime i prezime</label>
+          <input type="text" id="imePrezime" name="imePrezime" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400" required />
+        </div>
+
+        <div>
+          <label for="telefon" class="block mb-1 text-sm font-medium">Broj telefona</label>
+          <input type="tel" id="telefon" name="telefon" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400" required pattern="\+?\d{9,15}" />
+        </div>
+
+        <div>
+          <label for="mainService" class="block mb-1 text-sm font-medium">Usluga</label>
+          <select id="mainService" name="mainService" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400" required>
+            <option value="" disabled selected hidden>Izaberite uslugu</option>
+            <option value="noviSet">Novi set noktiju</option>
+            <option value="korekcija">Korekcija</option>
+          </select>
+        </div>
+
+        <div id="noviSetOptions" class="hidden space-y-4">
+          <div>
+            <label for="noviSetType" class="block mb-1 text-sm font-medium">Vrsta rada</label>
+            <select id="noviSetType" name="noviSetType" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400">
+              <option value="" disabled selected hidden>Izaberite vrstu</option>
+              <option value="sabloni">Izlivanje noktiju šablonima</option>
+              <option value="tipsama">Izlivanje noktiju gornjim tipsama</option>
+              <option value="nadogradnja">Nadogradnja noktiju</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="duzina" class="block mb-1 text-sm font-medium">Dužina noktiju</label>
+            <select id="duzina" name="duzina" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400">
+              <option value="" disabled selected hidden>Izaberite dužinu</option>
+              <option value="kratki">Kratki</option>
+              <option value="srednji">Srednji</option>
+              <option value="dugi">Dugi</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="oblik" class="block mb-1 text-sm font-medium">Oblik noktiju</label>
+            <select id="oblik" name="oblik" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400">
+              <option value="" disabled selected hidden>Izaberite oblik</option>
+              <option value="kocka">Kocka</option>
+              <option value="uskaKocka">Uska kocka</option>
+              <option value="badem">Badem</option>
+              <option value="spicasti">Špicasti</option>
+              <option value="ovalni">Ovalni</option>
+              <option value="drugo">Drugo</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block mb-1 text-sm font-medium">Dizajn noktiju</label>
+            <div class="flex flex-col gap-1">
+              <label class="flex items-center space-x-2 text-sm">
+                <input type="checkbox" id="boja" value="boja" class="rounded text-pink-600 focus:ring-pink-400" />
+                <span>Boja</span>
+              </label>
+              <label class="flex items-center space-x-2 text-sm">
+                <input type="checkbox" id="french" value="french" class="rounded text-pink-600 focus:ring-pink-400" />
+                <span>French</span>
+              </label>
+              <label class="flex items-center space-x-2 text-sm">
+                <input type="checkbox" id="ostalo" value="ostalo" class="rounded text-pink-600 focus:ring-pink-400" />
+                <span>Ostalo (Crtanje, Nakit, 3D, Cat-eye)</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <label for="date" class="block mb-1 text-sm font-medium">Dan termina</label>
+          <select id="date" name="date" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400" required>
+            <option value="" disabled selected hidden>Izaberite dan</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="time" class="block mb-1 text-sm font-medium">Vreme termina</label>
+          <select id="time" name="time" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400" required>
+            <option value="" disabled selected hidden>Izaberite vreme</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="komentar" class="block mb-1 text-sm font-medium">Napomene</label>
+          <textarea id="komentar" name="komentar" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 resize-none" rows="3"></textarea>
+        </div>
+
+        <div class="text-center text-sm text-gray-600 font-medium">
+          <div id="durationDisplay">Procena trajanja: -</div>
+          <div id="priceDisplay">Okvirna cena rada: -</div>
+        </div>
+
+        <button type="submit" class="w-full bg-pink-600 text-white py-2 px-4 rounded-lg font-semibold text-sm hover:bg-pink-700 transition duration-200">
+          Zakaži
+        </button>
+      </form>
+
+      <div id="message" class="mt-4 text-center text-sm font-semibold"></div>
     </div>
-    <div class="form-group">
-      <label for="main_service">Usluga *</label>
-      <select id="main_service" required>
-        <option value="">Izaberite uslugu</option>
-        <option value="Manikir">Manikir</option>
-        <option value="Pedikir">Pedikir</option>
-        <option value="Depilacija">Depilacija</option>
-      </select>
-    </div>
-    <div class="form-group">
-      <label for="sub_service">Specifična Usluga *</label>
-      <select id="sub_service" required>
-        <option value="">Prvo izaberite uslugu</option>
-      </select>
-    </div>
-    <div class="form-group">
-      <label for="length">Dužina Noktiju</label>
-      <select id="length">
-        <option value="">Izaberite dužinu</option>
-        <option value="Kratki">Kratki</option>
-        <option value="Srednji">Srednji</option>
-        <option value="Dugi">Dugi</option>
-      </select>
-    </div>
-    <div class="form-group">
-      <label for="shape">Oblik Noktiju</label>
-      <select id="shape">
-        <option value="">Izaberite oblik</option>
-        <option value="Kvadratni">Kvadratni</option>
-        <option value="Badem">Badem</option>
-        <option value="Ovalni">Ovalni</option>
-        <option value="Stiletto">Stiletto</option>
-      </select>
-    </div>
-    <div class="form-group">
-      <label for="design">Dizajn</label>
-      <select id="design">
-        <option value="">Izaberite dizajn</option>
-        <option value="Bez dizajna">Bez dizajna</option>
-        <option value="French">French</option>
-        <option value="Ombre">Ombre</option>
-        <option value="Dekoracija">Dekoracija</option>
-      </select>
-    </div>
-    <div class="form-group">
-      <label for="date">Datum *</label>
-      <select id="date" required>
-        <option value="">Izaberite datum</option>
-      </select>
-    </div>
-    <div class="form-group">
-      <label for="time">Vreme *</label>
-      <select id="time" required>
-        <option value="">Izaberite vreme</option>
-      </select>
-    </div>
-    <div class="form-group">
-      <label for="notes">Napomene</label>
-      <textarea id="notes"></textarea>
-    </div>
-    <button type="submit" id="submitButton" disabled>Rezerviši</button>
-  </form>
-  <div id="message" class="message"></div>
+  </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <script>
-    const SUPABASE_URL = 'https://xkljqcxonrnstuivtihc.supabase.co';
-    const SUPABASE_ANON_KEY = 'your-anon-key-here'; // Replace with your anon key
-    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    const APPOINTMENTS_TABLE = 'appointments';
-
-    const SERVICE_DURATIONS = {
-      'Gel lak': 60,
-      'Izlivanje noktiju': 90,
-      'Korekcija noktiju': 75,
-      'Estetski pedikir': 45,
-      'Medicinski pedikir': 60,
-      'Depilacija celih nogu': 30,
-      'Depilacija pola nogu': 20,
-      'Depilacija ruku': 15,
-      'Depilacija pazuha': 10,
-      'Depilacija nausnica': 10
-    };
-
-    const SUB_SERVICES = {
-      'Manikir': ['Gel lak', 'Izlivanje noktiju', 'Korekcija noktiju'],
-      'Pedikir': ['Estetski pedikir', 'Medicinski pedikir'],
-      'Depilacija': ['Depilacija celih nogu', 'Depilacija pola nogu', 'Depilacija ruku', 'Depilacija pazuha', 'Depilacija nausnica']
-    };
-
-    function showMessage(text, isError = false) {
-      const messageDiv = document.getElementById('message');
-      messageDiv.textContent = text;
-      messageDiv.classList.toggle('error', isError);
-      messageDiv.classList.add('visible');
-      setTimeout(() => messageDiv.classList.remove('visible'), 3000);
-    }
-
-    function formatDate(d) {
-      return d.toISOString().slice(0, 10);
-    }
-
-    function formatDisplayDate(d) {
-      return d.toLocaleDateString('sr-RS', { weekday: 'short', day: 'numeric', month: 'short' });
-    }
-
-    function timeToMinutes(time) {
-      const [hours, minutes] = time.split(':').map(Number);
-      return hours * 60 + minutes;
-    }
-
-    async function loadAvailableDates() {
-      const { data, error } = await supabaseClient
-        .from(APPOINTMENTS_TABLE)
-        .select('date')
-        .eq('available', true)
-        .eq('is_booked', false)
-        .gte('date', formatDate(new Date()))
-        .order('date', { ascending: true });
-
-      if (error) {
-        console.error('Error loading dates:', error);
-        showMessage(`Greška pri učitavanju datuma: ${error.message}`, true);
-        return [];
-      }
-
-      const uniqueDates = [...new Set(data.map(d => d.date.split('T')[0]))];
-      const dateSelect = document.getElementById('date');
-      dateSelect.innerHTML = '<option value="">Izaberite datum</option>';
-      uniqueDates.forEach(date => {
-        const d = new Date(date);
-        const option = document.createElement('option');
-        option.value = date;
-        option.textContent = formatDisplayDate(d);
-        dateSelect.appendChild(option);
-      });
-
-      return uniqueDates;
-    }
-
-    async function loadAvailableTimes(selectedDate, duration) {
-      if (!selectedDate || !duration) return;
-
-      const { data, error } = await supabaseClient
-        .from(APPOINTMENTS_TABLE)
-        .select('date, time, available, is_booked')
-        .eq('date', selectedDate)
-        .order('time', { ascending: true });
-
-      if (error) {
-        console.error('Error loading times:', error);
-        showMessage(`Greška pri učitavanju vremena: ${error.message}`, true);
+    window.onload = async () => {
+      if (typeof supabase === 'undefined') {
+        document.getElementById('message').textContent = 'Greška: Supabase JS nije učitan.';
+        document.getElementById('message').classList.add('text-red-600');
         return;
       }
 
-      const timeSelect = document.getElementById('time');
-      timeSelect.innerHTML = '<option value="">Izaberite vreme</option>';
+      const SUPABASE_URL = 'https://xkljqcxonrnstuivtihc.supabase.co';
+      const SUPABASE_ANON_KEY = prompt('Unesite Supabase anon ključ:');
+      if (!SUPABASE_ANON_KEY) {
+        document.getElementById('message').textContent = 'Supabase ključ je neophodan.';
+        document.getElementById('message').classList.add('text-red-600');
+        return;
+      }
 
-      // Filter times where all slots in duration are available
-      const availableTimes = [];
-      data.forEach(row => {
-        if (!row.available || row.is_booked) return;
-        const startMinutes = timeToMinutes(row.time);
-        const numSlots = Math.ceil(duration / 30);
-        let allAvailable = true;
-        for (let i = 0; i < numSlots; i++) {
-          const slotTime = minutesToTime(startMinutes + i * 30);
-          const slot = data.find(d => d.time === slotTime);
-          if (!slot || !slot.available || slot.is_booked) {
-            allAvailable = false;
-            break;
+      const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+      const TIME_SLOTS = [];
+      for (let h = 8; h <= 20; h++) {
+        TIME_SLOTS.push(`${h.toString().padStart(2, '0')}:00`);
+        if (h < 20) TIME_SLOTS.push(`${h.toString().padStart(2, '0')}:30`);
+      }
+
+      const mainService = document.getElementById('mainService');
+      const noviSetOptions = document.getElementById('noviSetOptions');
+      const dateSelect = document.getElementById('date');
+      const timeSelect = document.getElementById('time');
+      const durationDisplay = document.getElementById('durationDisplay');
+      const priceDisplay = document.getElementById('priceDisplay');
+      const messageDiv = document.getElementById('message');
+
+      mainService.addEventListener('change', () => {
+        noviSetOptions.classList.toggle('hidden', mainService.value !== 'noviSet');
+        calculateEstimates();
+      });
+
+      document.querySelectorAll('#noviSetOptions select, #noviSetOptions input[type=checkbox]').forEach(el => {
+        el.addEventListener('change', calculateEstimates);
+      });
+
+      dateSelect.addEventListener('change', loadAvailableTimes);
+
+      function calculateEstimates() {
+        let duration = mainService.value === 'korekcija' ? 30 : 60; // 30 min for korekcija, 60 min for noviSet
+        let price = mainService.value === 'korekcija' ? 2000 : 3000; // Example prices
+
+        if (mainService.value === 'noviSet') {
+          const duzina = document.getElementById('duzina').value;
+          const ostalo = document.getElementById('ostalo').checked;
+          if (duzina === 'srednji' || duzina === 'dugi') {
+            duration += 30;
+            price += 500;
+          }
+          if (ostalo) {
+            duration += 30;
+            price += 1000;
           }
         }
-        if (allAvailable) {
-          availableTimes.push(row.time);
+
+        durationDisplay.textContent = `Procena trajanja: ${duration} min`;
+        priceDisplay.textContent = `Okvirna cena rada: ${price} RSD`;
+        return duration;
+      }
+
+      function timeToMinutes(time) {
+        const [hours, minutes] = time.split(':').map(Number);
+        return hours * 60 + minutes;
+      }
+
+      function minutesToTime(minutes) {
+        const hours = Math.floor(minutes / 60).toString().padStart(2, '0');
+        const mins = (minutes % 60).toString().padStart(2, '0');
+        return `${hours}:${mins}`;
+      }
+
+      async function loadAvailableDates() {
+        const now = new Date();
+        const dates = [];
+        for (let i = 0; i < 14; i++) {
+          const date = new Date(now);
+          date.setDate(now.getDate() + i);
+          dates.push(date.toISOString().slice(0, 10));
         }
-      });
 
-      availableTimes.sort().forEach(time => {
-        const option = document.createElement('option');
-        option.value = time;
-        option.textContent = time.slice(0, 5); // Display HH:MM
-        timeSelect.appendChild(option);
-      });
+        console.log('Querying dates:', dates);
 
-      timeSelect.disabled = availableTimes.length === 0;
-      document.getElementById('submitButton').disabled = availableTimes.length === 0;
-    }
+        const { data: availabilityData, error } = await supabaseClient
+          .from('appointments')
+          .select('date, time, is_booked, available')
+          .in('date', dates)
+          .eq('available', true)
+          .eq('is_booked', false);
 
-    function minutesToTime(minutes) {
-      const hours = Math.floor(minutes / 60).toString().padStart(2, '0');
-      const mins = (minutes % 60).toString().padStart(2, '0');
-      return `${hours}:${mins}:00`;
-    }
+        if (error) {
+          messageDiv.textContent = 'Greška pri učitavanju datuma.';
+          messageDiv.classList.add('text-red-600');
+          console.error('Load dates error:', error);
+          return;
+        }
 
-    async function submitForm(event) {
-      event.preventDefault();
-      const submitButton = document.getElementById('submitButton');
-      submitButton.disabled = true;
+        console.log('Available dates data:', availabilityData);
 
-      const formData = {
-        name_lastname: document.getElementById('name_lastname').value,
-        phone: document.getElementById('phone').value,
-        main_service: document.getElementById('main_service').value,
-        sub_service: document.getElementById('sub_service').value,
-        length: document.getElementById('length').value || null,
-        shape: document.getElementById('shape').value || null,
-        design: document.getElementById('design').value || null,
-        date: document.getElementById('date').value,
-        time: document.getElementById('time').value,
-        notes: document.getElementById('notes').value || null,
-        duration: SERVICE_DURATIONS[document.getElementById('sub_service').value] || 30,
-        is_booked: true,
-        available: false
-      };
+        dateSelect.innerHTML = '<option value="" disabled selected hidden>Izaberite dan</option>';
+        const availableDates = new Set(availabilityData.map(d => d.date.split('T')[0]));
+        console.log('Available dates set:', availableDates);
 
-      // Validate duration
-      const startMinutes = timeToMinutes(formData.time);
-      const numSlots = Math.ceil(formData.duration / 30);
-      const slotsToUpdate = [];
-      for (let i = 0; i < numSlots; i++) {
-        const slotTime = minutesToTime(startMinutes + i * 30);
-        slotsToUpdate.push({
-          date: formData.date,
-          time: slotTime,
-          is_booked: true,
-          available: false,
-          name_lastname: formData.name_lastname,
-          phone: formData.phone,
-          main_service: formData.main_service,
-          sub_service: formData.sub_service,
-          length: formData.length,
-          shape: formData.shape,
-          design: formData.design,
-          notes: formData.notes,
-          duration: formData.duration
+        dates.forEach(date => {
+          if (availableDates.has(date)) {
+            const option = document.createElement('option');
+            option.value = date;
+            option.textContent = new Date(date).toLocaleDateString('sr-RS', { weekday: 'long', day: 'numeric', month: 'long' });
+            dateSelect.appendChild(option);
+          }
         });
       }
 
-      try {
-        const { data, error } = await supabaseClient
-          .from(APPOINTMENTS_TABLE)
-          .upsert(slotsToUpdate, {
-            onConflict: ['date', 'time'],
-            ignoreDuplicates: false
-          })
-          .select();
+      async function loadAvailableTimes() {
+        const selectedDate = dateSelect.value;
+        if (!selectedDate) return;
+
+        timeSelect.innerHTML = '<option value="" disabled selected hidden>Izaberite vreme</option>';
+
+        const { data: availabilityData, error } = await supabaseClient
+          .from('appointments')
+          .select('time, is_booked, available')
+          .eq('date', selectedDate)
+          .eq('available', true)
+          .eq('is_booked', false);
 
         if (error) {
-          console.error('Upsert error:', error);
-          showMessage(`Greška pri rezervaciji: ${error.message}`, true);
+          messageDiv.textContent = 'Greška pri učitavanju vremena.';
+          messageDiv.classList.add('text-red-600');
+          console.error('Load times error:', error);
+          return;
+        }
+
+        console.log('Available times data:', availabilityData);
+
+        const availableTimes = availabilityData.map(d => d.time).sort();
+        console.log('Available times:', availableTimes);
+
+        availableTimes.forEach(time => {
+          const option = document.createElement('option');
+          option.value = time;
+          option.textContent = time;
+          timeSelect.appendChild(option);
+        });
+      }
+
+      document.getElementById('appointmentForm').addEventListener('submit', async e => {
+        e.preventDefault();
+
+        const designOptions = [];
+        if (document.getElementById('boja').checked) designOptions.push('Boja');
+        if (document.getElementById('french').checked) designOptions.push('French');
+        if (document.getElementById('ostalo').checked) designOptions.push('Ostalo');
+
+        const duration = calculateEstimates();
+        const startTime = document.getElementById('time').value;
+        const startMinutes = timeToMinutes(startTime);
+        const numSlots = Math.ceil(duration / 30);
+        const payloads = [];
+
+        for (let i = 0; i < numSlots; i++) {
+          const slotTime = minutesToTime(startMinutes + i * 30);
+          if (!TIME_SLOTS.includes(slotTime)) continue;
+
+          payloads.push({
+            name_lastname: document.getElementById('imePrezime').value,
+            phone: document.getElementById('telefon').value,
+            main_service: document.getElementById('mainService').value,
+            sub_service: document.getElementById('noviSetType').value || null,
+            length: document.getElementById('duzina').value || null,
+            shape: document.getElementById('oblik').value || null,
+            design: designOptions.length ? designOptions : null,
+            date: document.getElementById('date').value,
+            time: slotTime,
+            notes: document.getElementById('komentar').value,
+            duration: duration,
+            is_booked: true,
+            available: false
+          });
+        }
+
+        console.log('Insert payload:', payloads);
+
+        const { error } = await supabaseClient
+          .from('appointments')
+          .insert(payloads);
+
+        if (error) {
+          messageDiv.textContent = 'Greška pri zakazivanju. Pokušajte ponovo.';
+          messageDiv.classList.add('text-red-600');
+          messageDiv.classList.remove('text-green-600');
+          console.error('Insert error:', error);
         } else {
-          console.log('Upsert response:', data);
-          showMessage('Rezervacija uspešna!');
-          document.getElementById('bookingForm').reset();
-          document.getElementById('date').innerHTML = '<option value="">Izaberite datum</option>';
-          document.getElementById('time').innerHTML = '<option value="">Izaberite vreme</option>';
-          document.getElementById('sub_service').innerHTML = '<option value="">Prvo izaberite uslugu</option>';
+          messageDiv.textContent = 'Uspešno ste zakazali termin!';
+          messageDiv.classList.add('text-green-600');
+          messageDiv.classList.remove('text-red-600');
+          document.getElementById('appointmentForm').reset();
+          noviSetOptions.classList.add('hidden');
+          durationDisplay.textContent = 'Procena trajanja: -';
+          priceDisplay.textContent = 'Okvirna cena rada: -';
+          dateSelect.innerHTML = '<option value="" disabled selected hidden>Izaberite dan</option>';
+          timeSelect.innerHTML = '<option value="" disabled selected hidden>Izaberite vreme</option>';
           await loadAvailableDates();
         }
-      } catch (err) {
-        console.error('Unexpected error:', err);
-        showMessage('Neočekivana greška. Proverite konzolu.', true);
-      } finally {
-        submitButton.disabled = false;
-      }
-    }
-
-    // Event Listeners
-    document.getElementById('main_service').addEventListener('change', (e) => {
-      const subServiceSelect = document.getElementById('sub_service');
-      subServiceSelect.innerHTML = '<option value="">Izaberite specifičnu uslugu</option>';
-      const subs = SUB_SERVICES[e.target.value] || [];
-      subs.forEach(sub => {
-        const option = document.createElement('option');
-        option.value = sub;
-        option.textContent = sub;
-        subServiceSelect.appendChild(option);
       });
-      subServiceSelect.disabled = subs.length === 0;
-    });
 
-    document.getElementById('sub_service').addEventListener('change', async () => {
-      const date = document.getElementById('date').value;
-      const subService = document.getElementById('sub_service').value;
-      const duration = SERVICE_DURATIONS[subService] || 30;
-      if (date) {
-        await loadAvailableTimes(date, duration);
-      }
-    });
-
-    document.getElementById('date').addEventListener('change', async (e) => {
-      const subService = document.getElementById('sub_service').value;
-      const duration = SERVICE_DURATIONS[subService] || 30;
-      await loadAvailableTimes(e.target.value, duration);
-    });
-
-    document.getElementById('bookingForm').addEventListener('submit', submitForm);
-
-    // Initialize
-    loadAvailableDates();
+      await loadAvailableDates();
+    };
   </script>
 </body>
 </html>
