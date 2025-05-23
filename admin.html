@@ -175,7 +175,7 @@
         const dateStrings = datesOfWeek.map(formatDate);
         const [availabilityRes, bookingRes] = await Promise.all([
           supabaseClient.from(AVAILABILITY_TABLE).select('*').in('date', dateStrings),
-          supabaseClient.from(BOOKINGS_TABLE).select('date,time,length').in('date', dateStrings)
+          supabaseClient.from(BOOKINGS_TABLE).select('date,time,duration').in('date', dateStrings)
         ]);
 
         if (availabilityRes.error) {
@@ -207,7 +207,7 @@
           if (!map[dateStr]) map[dateStr] = {};
           
           const startMinutes = timeToMinutes(b.time);
-          const duration = parseInt(b.length) || 30; // Default to 30 minutes if length is invalid
+          const duration = b.duration || 30; // Default to 30 minutes if duration is missing
           const numSlots = Math.ceil(duration / 30); // Number of 30-minute slots
 
           for (let i = 0; i < numSlots; i++) {
