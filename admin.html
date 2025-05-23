@@ -205,7 +205,7 @@
           const dayStr = formatDate(day);
           TIME_SLOTS.forEach(time => {
             if (!existing.has(`${dayStr}|${time}`)) {
-              slotsToInsert.push({ date: dayStr, time, is_booked: false, available: false });
+              slotsToInsert.push({ date: dayStr, time: `${time}:00`, is_booked: false, available: false });
             }
           });
         });
@@ -404,39 +404,38 @@
         const slotsToSave = [];
         selectedSlots.forEach(key => {
           const [date, time, status] = key.split('|');
-          slotsToSave.push({ date, time, is_booked: false, available: status === 'available' });
+          slotsToSave.push({ date, time: `${time}:00`, is_booked: false, available: status === 'available' });
         });
 
         console.log('Upsert payload:', slotsToSave);
 
         try {
-          const { data, error } = await supabaseClient
+          const { data: upsertData, error } = await supabaseClient
             .from(APPOINTMENTS_TABLE)
             .upsert(slotsToSave, {
               onConflict: ['date', 'time'],
               ignoreDuplicates: false
             })
-            .eq('is_booked', false)
             .select();
 
           if (error) {
-            console.error('Upsert error:', error);
+            console.error('Upsert error:', error, 'Details:', JSON.stringify(error, null, 2));
             showMessage(
               `Greška pri čuvanju: ${error.message}. Proverite anon ključ, RLS politike za UPDATE, i unique_date_time ograničenje.`,
               true
             );
           } else {
-            console.log('Upsert response:', data);
+            console.log('Upsert response:', upsertData);
             showMessage('Termini uspešno sačuvani!');
             selectedSlots.clear();
-            const data = await loadData();
-            if (data) {
-              renderCalendar(buildSlotMap(data));
+            const newData = await loadData();
+            if (newData) {
+              renderCalendar(buildSlotMap(newData));
               updateSaveButton();
             }
           }
         } catch (err) {
-          console.error('Unexpected error during upsert:', err);
+          console.error('Unexpected error during upsert:', err, 'Stack:', err.stack);
           showMessage('Neočekivana greška pri čuvanju. Proverite konzolu za detalje.', true);
         }
       }
