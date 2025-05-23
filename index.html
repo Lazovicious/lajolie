@@ -176,7 +176,7 @@
         let price = mainService.value === 'korekcija' ? 2000 : 3000; // Example prices
 
         if (mainService.value === 'noviSet') {
-          const duzina Buch document.getElementById('duzina').value;
+          const duzina = document.getElementById('duzina').value;
           const ostalo = document.getElementById('ostalo').checked;
           if (duzina === 'srednji' || duzina === 'dugi') {
             duration += 30;
@@ -213,6 +213,8 @@
           dates.push(date.toISOString().slice(0, 10));
         }
 
+        console.log('Querying dates:', dates);
+
         const { data: availabilityData, error } = await supabaseClient
           .from('appointments')
           .select('date, time, is_booked, available')
@@ -230,7 +232,8 @@
         console.log('Available dates data:', availabilityData);
 
         dateSelect.innerHTML = '<option value="" disabled selected hidden>Izaberite dan</option>';
-        const availableDates = new Set(availabilityData.map(d => d.date));
+        const availableDates = new Set(availabilityData.map(d => d.date.split('T')[0]));
+        console.log('Available dates set:', availableDates);
 
         dates.forEach(date => {
           if (availableDates.has(date)) {
@@ -247,7 +250,6 @@
         if (!selectedDate) return;
 
         timeSelect.innerHTML = '<option value="" disabled selected hidden>Izaberite vreme</option>';
-        const duration = calculateEstimates();
 
         const { data: availabilityData, error } = await supabaseClient
           .from('appointments')
@@ -265,22 +267,10 @@
 
         console.log('Available times data:', availabilityData);
 
-        const availableTimes = availabilityData.map(d => d.time);
-        const validTimes = availableTimes.filter(startTime => {
-          const startMinutes = timeToMinutes(startTime);
-          const numSlots = Math.ceil(duration / 30);
-          for (let i = 0; i < numSlots; i++) {
-            const slotTime = minutesToTime(startMinutes + i * 30);
-            if (!TIME_SLOTS.includes(slotTime) || !availableTimes.includes(slotTime)) {
-              return false;
-            }
-          }
-          return true;
-        });
+        const availableTimes = availabilityData.map(d => d.time).sort();
+        console.log('Available times:', availableTimes);
 
-        console.log('Valid times:', validTimes);
-
-        validTimes.forEach(time => {
+        availableTimes.forEach(time => {
           const option = document.createElement('option');
           option.value = time;
           option.textContent = time;
@@ -322,6 +312,8 @@
             available: false
           });
         }
+
+        console.log('Insert payload:', payloads);
 
         const { error } = await supabaseClient
           .from('appointments')
