@@ -72,7 +72,6 @@
       cursor: pointer;
     }
   </style>
-  <!-- Add a minimal favicon to prevent 404 in console -->
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22><text y=%2214%22 font-size=%2214%22>⌛</text></svg>">
 </head>
 <body>
@@ -81,11 +80,17 @@
   <div id="message" class="message"></div>
   <button id="saveBtn">Sačuvaj izabrane termine</button>
 
-  <!-- Load Supabase script first -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/supabase.min.js"></script>
+  <!-- Load Supabase first -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/supabase.min.js" defer></script>
 
-  <script>
-    window.onload = async () => {
+  <!-- Then main code -->
+  <script defer>
+    window.addEventListener('load', async () => {
+      if (typeof supabase === 'undefined') {
+        alert('Greška: Supabase JS nije učitan. Osvežite stranicu.');
+        return;
+      }
+
       const SUPABASE_URL = 'https://xkljqcxonrnstuivtihc.supabase.co';
       const SUPABASE_ANON_KEY = prompt('Unesite Supabase anon ključ za admin pristup:');
       if (!SUPABASE_ANON_KEY) {
@@ -100,7 +105,6 @@
 
       const DAY_NAMES = ['Ponedeljak', 'Utorak', 'Sreda', 'Četvrtak', 'Petak', 'Subota', 'Nedelja'];
 
-      // 30 min increments from 08:00 to 20:00
       const TIME_SLOTS = [];
       for (let h = 8; h < 20; h++) {
         TIME_SLOTS.push(h.toString().padStart(2, '0') + ':00');
@@ -108,7 +112,6 @@
       }
       TIME_SLOTS.push('20:00');
 
-      // Find Monday of current week
       function getMonday(d) {
         d = new Date(d);
         const day = d.getDay();
@@ -273,7 +276,7 @@
       document.getElementById('saveBtn').addEventListener('click', saveSelectedSlots);
 
       await main();
-    };
+    });
   </script>
 </body>
 </html>
