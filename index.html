@@ -176,7 +176,7 @@
         let price = mainService.value === 'korekcija' ? 2000 : 3000; // Example prices
 
         if (mainService.value === 'noviSet') {
-          const duzina = document.getElementById('duzina').value;
+          const duzina Buch document.getElementById('duzina').value;
           const ostalo = document.getElementById('ostalo').checked;
           if (duzina === 'srednji' || duzina === 'dugi') {
             duration += 30;
@@ -193,6 +193,17 @@
         return duration;
       }
 
+      function timeToMinutes(time) {
+        const [hours, minutes] = time.split(':').map(Number);
+        return hours * 60 + minutes;
+      }
+
+      function minutesToTime(minutes) {
+        const hours = Math.floor(minutes / 60).toString().padStart(2, '0');
+        const mins = (minutes % 60).toString().padStart(2, '0');
+        return `${hours}:${mins}`;
+      }
+
       async function loadAvailableDates() {
         const now = new Date();
         const dates = [];
@@ -203,8 +214,8 @@
         }
 
         const { data: availabilityData, error } = await supabaseClient
-          .from('availability_slots')
-          .select('date, time')
+          .from('appointments')
+          .select('date, time, is_booked, available')
           .in('date', dates)
           .eq('available', true)
           .eq('is_booked', false);
@@ -212,33 +223,14 @@
         if (error) {
           messageDiv.textContent = 'Greška pri učitavanju datuma.';
           messageDiv.classList.add('text-red-600');
+          console.error('Load dates error:', error);
           return;
         }
 
-        const { data: bookingData } = await supabaseClient
-          .from('jolie_t1')
-          .select('date, time, duration')
-          .in('date', dates);
-
-        const occupiedSlots = {};
-        bookingData.forEach(b => {
-          const dateStr = b.date;
-          if (!occupiedSlots[dateStr]) occupiedSlots[dateStr] = new Set();
-          const startMinutes = parseInt(b.time.split(':')[0]) * 60 + parseInt(b.time.split(':')[1]);
-          const numSlots = Math.ceil(b.duration / 30);
-          for (let i = 0; i < numSlots; i++) {
-            const slotTime = `${Math.floor((startMinutes + i * 30) / 60).toString().padStart(2, '0')}:${((startMinutes + i * 30) % 60).toString().padStart(2, '0')}`;
-            if (TIME_SLOTS.includes(slotTime)) {
-              occupiedSlots[dateStr].add(slotTime);
-            }
-          }
-        });
+        console.log('Available dates data:', availabilityData);
 
         dateSelect.innerHTML = '<option value="" disabled selected hidden>Izaberite dan</option>';
-        const availableDates = new Set(availabilityData.map(d => d.date).filter(d => {
-          const availableTimes = availabilityData.filter(a => a.date === d).map(a => a.time);
-          return availableTimes.some(t => !occupiedSlots[d]?.has(t));
-        }));
+        const availableDates = new Set(availabilityData.map(d => d.date));
 
         dates.forEach(date => {
           if (availableDates.has(date)) {
@@ -258,8 +250,8 @@
         const duration = calculateEstimates();
 
         const { data: availabilityData, error } = await supabaseClient
-          .from('availability_slots')
-          .select('time')
+          .from('appointments')
+          .select('time, is_booked, available')
           .eq('date', selectedDate)
           .eq('available', true)
           .eq('is_booked', false);
@@ -267,38 +259,26 @@
         if (error) {
           messageDiv.textContent = 'Greška pri učitavanju vremena.';
           messageDiv.classList.add('text-red-600');
+          console.error('Load times error:', error);
           return;
         }
 
-        const { data: bookingData } = await supabaseClient
-          .from('jolie_t1')
-          .select('time, duration')
-          .eq('date', selectedDate);
+        console.log('Available times data:', availabilityData);
 
-        const occupiedTimes = new Set();
-        bookingData.forEach(b => {
-          const startMinutes = parseInt(b.time.split(':')[0]) * 60 + parseInt(b.time.split(':')[1]);
-          const numSlots = Math.ceil(b.duration / 30);
-          for (let i = 0; i < numSlots; i++) {
-            const slotTime = `${Math.floor((startMinutes + i * 30) / 60).toString().padStart(2, '0')}:${((startMinutes + i * 30) % 60).toString().padStart(2, '0')}`;
-            if (TIME_SLOTS.includes(slotTime)) {
-              occupiedTimes.add(slotTime);
-            }
-          }
-        });
-
-        const availableTimes = availabilityData.map(d => d.time).filter(t => !occupiedTimes.has(t));
+        const availableTimes = availabilityData.map(d => d.time);
         const validTimes = availableTimes.filter(startTime => {
-          const startMinutes = parseInt(startTime.split(':')[0]) * 60 + parseInt(startTime.split(':')[1]);
+          const startMinutes = timeToMinutes(startTime);
           const numSlots = Math.ceil(duration / 30);
           for (let i = 0; i < numSlots; i++) {
-            const slotTime = `${Math.floor((startMinutes + i * 30) / 60).toString().padStart(2, '0')}:${((startMinutes + i * 30) % 60).toString().padStart(2, '0')}`;
-            if (!TIME_SLOTS.includes(slotTime) || occupiedTimes.has(slotTime) || !availableTimes.includes(slotTime)) {
+            const slotTime = minutesToTime(startMinutes + i * 30);
+            if (!TIME_SLOTS.includes(slotTime) || !availableTimes.includes(slotTime)) {
               return false;
             }
           }
           return true;
         });
+
+        console.log('Valid times:', validTimes);
 
         validTimes.forEach(time => {
           const option = document.createElement('option');
@@ -317,28 +297,41 @@
         if (document.getElementById('ostalo').checked) designOptions.push('Ostalo');
 
         const duration = calculateEstimates();
-        const payload = {
-          name_lastname: document.getElementById('imePrezime').value,
-          phone: document.getElementById('telefon').value,
-          main_service: document.getElementById('mainService').value,
-          sub_service: document.getElementById('noviSetType').value || null,
-          length: document.getElementById('duzina').value || null,
-          shape: document.getElementById('oblik').value || null,
-          design: designOptions.length ? designOptions : null,
-          date: document.getElementById('date').value,
-          time: document.getElementById('time').value,
-          notes: document.getElementById('komentar').value,
-          duration: duration
-        };
+        const startTime = document.getElementById('time').value;
+        const startMinutes = timeToMinutes(startTime);
+        const numSlots = Math.ceil(duration / 30);
+        const payloads = [];
+
+        for (let i = 0; i < numSlots; i++) {
+          const slotTime = minutesToTime(startMinutes + i * 30);
+          if (!TIME_SLOTS.includes(slotTime)) continue;
+
+          payloads.push({
+            name_lastname: document.getElementById('imePrezime').value,
+            phone: document.getElementById('telefon').value,
+            main_service: document.getElementById('mainService').value,
+            sub_service: document.getElementById('noviSetType').value || null,
+            length: document.getElementById('duzina').value || null,
+            shape: document.getElementById('oblik').value || null,
+            design: designOptions.length ? designOptions : null,
+            date: document.getElementById('date').value,
+            time: slotTime,
+            notes: document.getElementById('komentar').value,
+            duration: duration,
+            is_booked: true,
+            available: false
+          });
+        }
 
         const { error } = await supabaseClient
-          .from('jolie_t1')
-          .insert([payload]);
+          .from('appointments')
+          .insert(payloads);
 
         if (error) {
           messageDiv.textContent = 'Greška pri zakazivanju. Pokušajte ponovo.';
           messageDiv.classList.add('text-red-600');
           messageDiv.classList.remove('text-green-600');
+          console.error('Insert error:', error);
         } else {
           messageDiv.textContent = 'Uspešno ste zakazali termin!';
           messageDiv.classList.add('text-green-600');
