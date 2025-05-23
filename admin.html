@@ -40,25 +40,25 @@
       transition: background-color 0.2s;
     }
     .time-slot.available {
-      background-color: #d4f4d4;
-      color: #2e7d32;
+      background-color: #d4f4d4 !important;
+      color: #2e7d32 !important;
     }
     .time-slot.occupied {
-      background-color: #ffcdd2;
-      color: #c62828;
+      background-color: #ffcdd2 !important;
+      color: #c62828 !important;
       cursor: not-allowed;
     }
     .time-slot.blocked {
-      background-color: #e0e0e0;
-      color: #616161;
+      background-color: #e0e0e0 !important;
+      color: #616161 !important;
     }
     .time-slot.selected-available {
-      background-color: #a5d6a7;
-      color: #1b5e20;
+      background-color: #a5d6a7 !important;
+      color: #1b5e20 !important;
     }
     .time-slot.selected-blocked {
-      background-color: #bdbdbd;
-      color: #424242;
+      background-color: #bdbdbd !important;
+      color: #424242 !important;
     }
     .time-label {
       padding: 6px;
@@ -183,11 +183,11 @@
         ]);
 
         if (availabilityRes.error) {
-          showMessage(`Greška pri učitavanju dostupnosti: ${availabilityRes.error.message}. Proverite anon ključ i RLS politike.`, true);
+          showMessage(`Greška pri učitavanju dostupnosti: ${availabilityRes.error.message}. Proverite anon ključ i RLS politike za SELECT.`, true);
           return null;
         }
         if (bookingRes.error) {
-          showMessage(`Greška pri učitavanju rezervacija: ${bookingRes.error.message}. Proverite anon ključ i RLS politike.`, true);
+          showMessage(`Greška pri učitavanju rezervacija: ${bookingRes.error.message}. Proverite anon ključ i RLS politike za SELECT.`, true);
           return null;
         }
 
@@ -262,32 +262,47 @@
             const status = bookingMap[dayStr]?.[time] || availabilityMap[dayStr]?.[time] || 'blocked';
             slot.classList.add(status);
 
+            // Apply selected state if in selectedSlots
+            const availableKey = `${dayStr}|${time}|available`;
+            const blockedKey = `${dayStr}|${time}|blocked`;
+            if (selectedSlots.has(availableKey)) {
+              slot.classList.add('selected-available');
+            } else if (selectedSlots.has(blockedKey)) {
+              slot.classList.add('selected-blocked');
+            }
+
             if (status !== 'occupied') {
               slot.addEventListener('click', () => {
+                console.log(`Left-click on ${dayStr} ${time}, current classes: ${slot.className}`);
                 const key = `${dayStr}|${time}|available`;
                 if (selectedSlots.has(key)) {
                   selectedSlots.delete(key);
                   slot.classList.remove('selected-available');
+                  console.log(`Deselected available: ${key}`);
                 } else {
                   selectedSlots.delete(`${dayStr}|${time}|blocked`);
                   selectedSlots.add(key);
                   slot.classList.remove('selected-blocked');
                   slot.classList.add('selected-available');
+                  console.log(`Selected available: ${key}, new classes: ${slot.className}`);
                 }
                 updateSaveButton();
               });
 
               slot.addEventListener('contextmenu', (e) => {
                 e.preventDefault();
+                console.log(`Right-click on ${dayStr} ${time}, current classes: ${slot.className}`);
                 const key = `${dayStr}|${time}|blocked`;
                 if (selectedSlots.has(key)) {
                   selectedSlots.delete(key);
                   slot.classList.remove('selected-blocked');
+                  console.log(`Deselected blocked: ${key}`);
                 } else {
                   selectedSlots.delete(`${dayStr}|${time}|available`);
                   selectedSlots.add(key);
                   slot.classList.remove('selected-available');
                   slot.classList.add('selected-blocked');
+                  console.log(`Selected blocked: ${key}, new classes: ${slot.className}`);
                 }
                 updateSaveButton();
               });
@@ -325,6 +340,8 @@
           slotsToSave.push({ date, time, is_booked: false, available: status === 'available' });
         });
 
+        console.log('Upsert payload:', slotsToSave);
+
         try {
           const { data, error } = await supabaseClient
             .from(AVAILABILITY_TABLE)
@@ -334,7 +351,7 @@
           if (error) {
             console.error('Upsert error:', error);
             showMessage(
-              `Greška pri čuvanju: ${error.message}. Proverite RLS politike i kompozitno unique_date_time ograničenje na date i time kolone.`,
+              `Greška pri čuvanju: ${error.message}. Proverite anon ključ, RLS politike za INSERT/UPDATE, i unique_date_time ograničenje.`,
               true
             );
           } else {
