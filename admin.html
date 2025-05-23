@@ -3,554 +3,185 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Admin: Upravljanje Terminima</title>
+  <title>Admin Panel - Upravljanje Terminima</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📅</text></svg>" />
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 20px auto;
-      max-width: 1000px;
-      padding: 0 10px;
-      background-color: #f5f5f5;
-      color: #333;
-    }
-    h1 {
-      font-size: 1.5rem;
-      text-align: center;
-      margin-bottom: 20px;
-    }
-    .controls {
-      display: flex;
-      gap: 10px;
-      justify-content: center;
-      margin-bottom: 20px;
-    }
-    select, button {
-      padding: 8px;
-      font-size: 1rem;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-    }
-    .calendar {
-      display: grid;
-      grid-template-columns: auto repeat(7, 1fr);
-      gap: 4px;
-      font-size: 0.9rem;
-    }
-    .calendar-header {
-      font-weight: bold;
-      text-align: center;
-      padding: 8px;
-      background-color: #f0f0f0;
-      border-radius: 4px;
-    }
-    .time-slot {
-      padding: 6px;
-      text-align: center;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      cursor: pointer;
-      transition: background-color 0.2s;
-    }
-    .time-slot.available {
-      background-color: #c8e6c9 !important;
-      color: #2e7d32 !important;
-    }
-    .time-slot.occupied {
-      background-color: #d32f2f !important;
-      color: #ffffff !important;
-      cursor: not-allowed;
-    }
-    .time-slot.blocked {
-      background-color: #424242 !important;
-      color: #ffffff !important;
-    }
-    .time-slot.selected-available {
-      background-color: #a5d6a7 !important;
-      color: #1b5e20 !important;
-    }
-    .time-slot.selected-blocked {
-      background-color: #bdbdbd !important;
-      color: #424242 !important;
-    }
-    .time-label {
-      padding: 6px;
-      text-align: right;
-      font-weight: bold;
-    }
-    .buttons {
-      display: flex;
-      gap: 10px;
-      justify-content: center;
-      margin-top: 20px;
-    }
-    button {
-      padding: 10px 20px;
-      font-size: 1rem;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      transition: background-color 0.2s;
-    }
-    #saveButton {
-      background-color: #1976d2;
-      color: white;
-    }
-    #saveButton:disabled {
-      background-color: #90caf9;
-      cursor: not-allowed;
-    }
-    #clearButton {
-      background-color: #e0e0e0;
-      color: #333;
-    }
-    .message {
-      text-align: center;
-      padding: 10px;
-      font-size: 1rem;
-      color: #2e7d32;
-      display: none;
-    }
-    .message.error {
-      color: #c62828;
-    }
-    .message.visible {
-      display: block;
-    }
+    select:invalid { color: gray; }
+    option[disabled][hidden] { display: none; }
+    .slot-available { background-color: #d1fae5; }
+    .slot-booked { background-color: #fee2e2; }
+    .slot-unavailable { background-color: #e5e7eb; }
   </style>
 </head>
-<body>
-  <h1>Admin: Upravljanje Terminima</h1>
-  <div class="controls">
-    <select id="weekSelect">
-      <option value="">Izaberite nedelju</option>
-    </select>
-    <button id="prevWeek">Prethodna Nedelja</button>
-    <button id="nextWeek">Sledeća Nedelja</button>
-  </div>
-  <div id="calendar" class="calendar"></div>
-  <div id="message" class="message"></div>
-  <div class="buttons">
-    <button id="saveButton" disabled>Sačuvaj Promene</button>
-    <button id="clearButton">Poništi Izbor</button>
+<body class="bg-gradient-to-br from-[#f2eaea] to-[#e2d3d3] min-h-screen flex flex-col items-center p-4">
+  <div class="bg-white/80 backdrop-blur-md rounded-2xl shadow-lg w-full max-w-4xl p-6">
+    <h1 class="text-2xl font-bold text-gray-800 mb-6 text-center">Upravljanje Terminima</h1>
+    <div class="flex justify-between mb-4">
+      <button id="prevWeek" class="bg-pink-600 text-white py-2 px-4 rounded-lg hover:bg-pink-700">Prethodna Nedelja</button>
+      <span id="weekDisplay" class="text-lg font-semibold"></span>
+      <button id="nextWeek" class="bg-pink-600 text-white py-2 px-4 rounded-lg hover:bg-pink-700">Sledeća Nedelja</button>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full border-collapse">
+        <thead>
+          <tr class="bg-gray-100">
+            <th class="border p-2 text-sm">Vreme</th>
+            <th id="day0" class="border p-2 text-sm"></th>
+            <th id="day1" class="border p-2 text-sm"></th>
+            <th id="day2" class="border p-2 text-sm"></th>
+            <th id="day3" class="border p-2 text-sm"></th>
+            <th id="day4" class="border p-2 text-sm"></th>
+            <th id="day5" class="border p-2 text-sm"></th>
+            <th id="day6" class="border p-2 text-sm"></th>
+          </tr>
+        </thead>
+        <tbody id="slotsTable"></tbody>
+      </table>
+    </div>
+    <div id="message" class="mt-4 text-center text-sm font-semibold"></div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <script>
     window.onload = async () => {
       if (typeof supabase === 'undefined') {
-        showMessage('Greška: Supabase JS nije učitan.', true);
+        document.getElementById('message').textContent = 'Greška: Supabase JS nije učitan.';
+        document.getElementById('message').classList.add('text-red-600');
         return;
       }
 
       const SUPABASE_URL = 'https://xkljqcxonrnstuivtihc.supabase.co';
-      const SUPABASE_ANON_KEY = prompt('Unesite Supabase anon ključ za admin pristup:');
-      if (!SUPABASE_ANON_KEY) {
-        showMessage('Admin ključ je neophodan.', true);
-        return;
-      }
-
+      const SUPABASE_ANON_KEY = 'YOUR_ANON_KEY'; // Replace with your anon key
       const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
       const APPOINTMENTS_TABLE = 'appointments';
 
-      const TIME_SLOTS = [];
-      for (let h = 6; h <= 24; h++) {
-        TIME_SLOTS.push(`${h.toString().padStart(2, '0')}:00`);
-        if (h < 24) TIME_SLOTS.push(`${h.toString().padStart(2, '0')}:30`);
-      }
-      TIME_SLOTS.push('00:30'); // Add 00:30 for 1:00 AM
+      const TIME_SLOTS = [
+        '06:00', '06:30', '07:00', '07:30', '08:00', '08:30', '09:00', '09:30',
+        '10:00', '10:30', '11:00', '11:30', '12:00', '12:30', '13:00', '13:30',
+        '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30',
+        '18:00', '18:30', '19:00', '19:30', '20:00', '20:30', '21:00', '21:30',
+        '22:00', '22:30', '23:00', '23:30', '00:00', '00:30'
+      ];
       console.log('TIME_SLOTS:', TIME_SLOTS);
 
-      function getMonday(d) {
-        d = new Date(d);
-        const day = d.getDay();
-        const diff = (day === 0 ? -6 : 1) - day;
-        d.setDate(d.getDate() + diff);
-        return d;
-      }
+      let currentWeekStart = new Date('2025-05-24');
+      currentWeekStart.setHours(0, 0, 0, 0);
 
-      function getWeekDates(startDate) {
-        const monday = getMonday(startDate);
+      async function initializeSlots(startDate) {
         const dates = [];
         for (let i = 0; i < 7; i++) {
-          const dt = new Date(monday);
-          dt.setDate(monday.getDate() + i);
-          dates.push(dt);
-        }
-        return dates;
-      }
-
-      // Generate weeks from May 24, 2025 to May 24, 2026
-      const weeks = [];
-      let current = new Date('2025-05-24');
-      const end = new Date('2026-05-24');
-      while (current <= end) {
-        weeks.push(new Date(current));
-        current.setDate(current.getDate() + 7);
-      }
-
-      function populateWeekSelect() {
-        const weekSelect = document.getElementById('weekSelect');
-        weekSelect.innerHTML = '<option value="">Izaberite nedelju</option>';
-        weeks.forEach(week => {
-          const monday = getMonday(week);
-          const sunday = new Date(monday);
-          sunday.setDate(monday.getDate() + 6);
-          const option = document.createElement('option');
-          option.value = formatDate(monday);
-          option.textContent = `${formatDisplayDate(monday)} - ${formatDisplayDate(sunday)}`;
-          weekSelect.appendChild(option);
-        });
-      }
-
-      let datesOfWeek = getWeekDates(new Date('2025-05-24')); // Start at current week
-
-      function formatDate(d) {
-        return d.toISOString().slice(0, 10);
-      }
-
-      function formatDisplayDate(d) {
-        return d.toLocaleDateString('sr-RS', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
-      }
-
-      function timeToMinutes(time) {
-        const [hours, minutes] = time.split(':').map(Number);
-        return hours * 60 + minutes;
-      }
-
-      function minutesToTime(minutes) {
-        const hours = Math.floor(minutes / 60).toString().padStart(2, '0');
-        const mins = (minutes % 60).toString().padStart(2, '0');
-        return `${hours}:${mins}`;
-      }
-
-      function normalizeTime(time) {
-        try {
-          return time.split(':').slice(0, 2).join(':');
-        } catch (e) {
-          console.warn(`Failed to normalize time: ${time}`, e);
-          return time;
-        }
-      }
-
-      async function initializeSlots() {
-        const dateStrings = datesOfWeek.map(formatDate);
-        const { data: existingSlots, error } = await supabaseClient
-          .from(APPOINTMENTS_TABLE)
-          .select('date, time')
-          .in('date', dateStrings);
-
-        if (error) {
-          console.error('Error checking existing slots:', error);
-          showMessage(`Greška pri proveri slotova: ${error.message}`, true);
-          return;
+          const date = new Date(startDate);
+          date.setDate(startDate.getDate() + i);
+          dates.push(date.toISOString().slice(0, 10));
         }
 
-        const existing = new Set(existingSlots.map(s => `${s.date.split('T')[0]}|${normalizeTime(s.time)}`));
-        const slotsToInsert = [];
-
-        datesOfWeek.forEach(day => {
-          const dayStr = formatDate(day);
+        const slots = [];
+        dates.forEach(date => {
           TIME_SLOTS.forEach(time => {
-            if (!existing.has(`${dayStr}|${time}`)) {
-              slotsToInsert.push({ date: dayStr, time: `${time}:00`, is_booked: false, available: false });
-            }
+            slots.push({ date, time: `${time}:00`, available: true, is_booked: false });
           });
         });
-
-        if (slotsToInsert.length > 0) {
-          const { error: insertError } = await supabaseClient
-            .from(APPOINTMENTS_TABLE)
-            .insert(slotsToInsert)
-            .onConflict(['date', 'time'])
-            .ignore();
-          if (insertError) {
-            console.error('Error initializing slots:', insertError);
-            showMessage(`Greška pri inicijalizaciji slotova: ${insertError.message}`, true);
-          } else {
-            console.log(`Initialized ${slotsToInsert.length} new slots`);
-          }
-        }
-      }
-
-      async function loadData() {
-        const dateStrings = datesOfWeek.map(formatDate);
-        const { data, error } = await supabaseClient
-          .from(APPOINTMENTS_TABLE)
-          .select('date, time, is_booked, available, name_lastname, duration')
-          .in('date', dateStrings);
-
-        if (error) {
-          showMessage(`Greška pri učitavanju podataka: ${error.message}. Proverite anon ključ i RLS politike za SELECT.`, true);
-          console.error('Load data error:', error);
-          return null;
-        }
-
-        const normalizedData = data.map(row => ({
-          ...row,
-          date: row.date.split('T')[0],
-          time: normalizeTime(row.time),
-          raw_time: row.time
-        }));
-
-        console.log('Loaded and normalized appointments data:', normalizedData.slice(0, 5));
-        return normalizedData;
-      }
-
-      function buildSlotMap(data) {
-        const map = {};
-        datesOfWeek.forEach(day => {
-          const dateStr = formatDate(day);
-          map[dateStr] = {};
-          TIME_SLOTS.forEach(time => {
-            map[dateStr][time] = 'blocked';
-          });
-        });
-
-        const unmatchedRows = [];
-        data.forEach(row => {
-          const dateStr = row.date;
-          const time = row.time;
-          if (!map[dateStr] || !map[dateStr][time]) {
-            unmatchedRows.push({ date: dateStr, raw_time: row.raw_time, time, available: row.available, is_booked: row.is_booked });
-            console.warn(`Unmatched row: date=${dateStr}, raw_time=${row.raw_time}, normalized_time=${time}, expected times: ${TIME_SLOTS.join(', ')}`);
-            return;
-          }
-          if (row.is_booked && row.name_lastname) {
-            const startMinutes = timeToMinutes(time);
-            const duration = row.duration || 30;
-            const numSlots = Math.ceil(duration / 30);
-            for (let i = 0; i < numSlots; i++) {
-              const slotTime = minutesToTime(startMinutes + i * 30);
-              if (TIME_SLOTS.includes(slotTime)) {
-                map[dateStr][slotTime] = 'occupied';
-              }
-            }
-          } else {
-            map[dateStr][time] = row.is_booked ? 'occupied' : row.available ? 'available' : 'blocked';
-          }
-        });
-
-        if (unmatchedRows.length > 0) {
-          console.warn('Unmatched rows in buildSlotMap:', unmatchedRows.slice(0, 5));
-        }
-        console.log('Built slot map:', map);
-        return map;
-      }
-
-      const selectedSlots = new Set();
-
-      function renderCalendar(slotMap) {
-        const calendarDiv = document.getElementById('calendar');
-        calendarDiv.innerHTML = '';
-
-        const headerRow = document.createElement('div');
-        headerRow.style.display = 'contents';
-        const emptyHeader = document.createElement('div');
-        emptyHeader.className = 'calendar-header';
-        headerRow.appendChild(emptyHeader);
-        datesOfWeek.forEach(day => {
-          const header = document.createElement('div');
-          header.className = 'calendar-header';
-          header.textContent = formatDisplayDate(day);
-          headerRow.appendChild(header);
-        });
-        calendarDiv.appendChild(headerRow);
-
-        TIME_SLOTS.forEach(time => {
-          const row = document.createElement('div');
-          row.style.display = 'contents';
-          
-          const timeLabel = document.createElement('div');
-          timeLabel.className = 'time-label';
-          timeLabel.textContent = time;
-          row.appendChild(timeLabel);
-
-          datesOfWeek.forEach(day => {
-            const dayStr = formatDate(day);
-            const slot = document.createElement('div');
-            slot.className = 'time-slot';
-            
-            const status = slotMap[dayStr]?.[time] || 'blocked';
-            slot.classList.add(status);
-            console.log(`Slot ${dayStr} ${time}: status=${status}`);
-
-            const availableKey = `${dayStr}|${time}|available`;
-            const blockedKey = `${dayStr}|${time}|blocked`;
-            if (selectedSlots.has(availableKey)) {
-              slot.classList.add('selected-available');
-            } else if (selectedSlots.has(blockedKey)) {
-              slot.classList.add('selected-blocked');
-            }
-
-            if (status !== 'occupied') {
-              slot.addEventListener('click', () => {
-                console.log(`Left-click on ${dayStr} ${time}, current classes: ${slot.className}`);
-                const key = `${dayStr}|${time}|available`;
-                if (selectedSlots.has(key)) {
-                  selectedSlots.delete(key);
-                  slot.classList.remove('selected-available');
-                  console.log(`Deselected available: ${key}`);
-                } else {
-                  selectedSlots.delete(`${dayStr}|${time}|blocked`);
-                  selectedSlots.add(key);
-                  slot.classList.remove('selected-blocked');
-                  slot.classList.add('selected-available');
-                  console.log(`Selected available: ${key}, new classes: ${slot.className}`);
-                }
-                updateSaveButton();
-              });
-
-              slot.addEventListener('contextmenu', (e) => {
-                e.preventDefault();
-                console.log(`Right-click on ${dayStr} ${time}, current classes: ${slot.className}`);
-                const key = `${dayStr}|${time}|blocked`;
-                if (selectedSlots.has(key)) {
-                  selectedSlots.delete(key);
-                  slot.classList.remove('selected-blocked');
-                  console.log(`Deselected blocked: ${key}`);
-                } else {
-                  selectedSlots.delete(`${dayStr}|${time}|available`);
-                  selectedSlots.add(key);
-                  slot.classList.remove('selected-available');
-                  slot.classList.add('selected-blocked');
-                  console.log(`Selected blocked: ${key}, new classes: ${slot.className}`);
-                }
-                updateSaveButton();
-              });
-            }
-
-            row.appendChild(slot);
-          });
-
-          calendarDiv.appendChild(row);
-        });
-      }
-
-      function updateSaveButton() {
-        const saveButton = document.getElementById('saveButton');
-        saveButton.disabled = selectedSlots.size === 0;
-      }
-
-      function showMessage(text, isError = false) {
-        const messageDiv = document.getElementById('message');
-        messageDiv.textContent = text;
-        messageDiv.classList.toggle('error', isError);
-        messageDiv.classList.add('visible');
-        setTimeout(() => messageDiv.classList.remove('visible'), 3000);
-      }
-
-      async function saveSelectedSlots() {
-        if (selectedSlots.size === 0) {
-          showMessage('Nema izabranih termina.');
-          return;
-        }
-
-        const slotsToSave = [];
-        selectedSlots.forEach(key => {
-          const [date, time, status] = key.split('|');
-          slotsToSave.push({ date, time: `${time}:00`, is_booked: false, available: status === 'available' });
-        });
-
-        console.log('Upsert payload:', slotsToSave);
 
         try {
-          const { data: upsertData, error } = await supabaseClient
+          const { data, error } = await supabaseClient
             .from(APPOINTMENTS_TABLE)
-            .upsert(slotsToSave, {
-              onConflict: ['date', 'time'],
-              ignoreDuplicates: false
-            })
+            .upsert(slots, { onConflict: ['date', 'time'], ignoreDuplicates: true })
             .select();
 
           if (error) {
-            console.error('Upsert error:', error, 'Details:', JSON.stringify(error, null, 2));
-            showMessage(
-              `Greška pri čuvanju: ${error.message}. Proverite anon ključ, RLS politike za UPDATE, i unique_date_time ograničenje.`,
-              true
-            );
+            console.error('Upsert error:', error);
+            document.getElementById('message').textContent = `Greška pri inicijalizaciji: ${error.message}`;
+            document.getElementById('message').classList.add('text-red-600');
           } else {
-            console.log('Upsert response:', upsertData);
-            showMessage('Termini uspešno sačuvani!');
-            selectedSlots.clear();
-            const newData = await loadData();
-            if (newData) {
-              renderCalendar(buildSlotMap(newData));
-              updateSaveButton();
-            }
+            console.log('Initialized slots:', data.length);
           }
         } catch (err) {
-          console.error('Unexpected error during upsert:', err, 'Stack:', err.stack);
-          showMessage('Neočekivana greška pri čuvanju. Proverite konzolu za detalje.', true);
+          console.error('Unexpected error:', err);
+          document.getElementById('message').textContent = 'Neočekivana greška.';
+          document.getElementById('message').classList.add('text-red-600');
         }
       }
 
-      async function clearSelection() {
-        selectedSlots.clear();
-        const data = await loadData();
-        if (data) {
-          renderCalendar(buildSlotMap(data));
-          showMessage('Izbor poništen.');
-          updateSaveButton();
+      async function loadWeek(startDate) {
+        const dates = [];
+        for (let i = 0; i < 7; i++) {
+          const date = new Date(startDate);
+          date.setDate(startDate.getDate() + i);
+          dates.push(date.toISOString().slice(0, 10));
+          document.getElementById(`day${i}`).textContent = date.toLocaleDateString('sr-RS', { weekday: 'short', day: 'numeric', month: 'short' });
         }
-      }
 
-      // Week navigation
-      document.getElementById('weekSelect').addEventListener('change', async (e) => {
-        if (e.target.value) {
-          datesOfWeek = getWeekDates(new Date(e.target.value));
-          await initializeSlots();
-          const data = await loadData();
-          if (data) {
-            renderCalendar(buildSlotMap(data));
-          }
+        const weekEnd = new Date(startDate);
+        weekEnd.setDate(startDate.getDate() + 6);
+        document.getElementById('weekDisplay').textContent = `${startDate.toLocaleDateString('sr-RS', { month: 'long', day: 'numeric' })} - ${weekEnd.toLocaleDateString('sr-RS', { month: 'long', day: 'numeric', year: 'numeric' })}`;
+
+        const { data, error } = await supabaseClient
+          .from(APPOINTMENTS_TABLE)
+          .select('date, time, available, is_booked, name_lastname, main_service')
+          .in('date', dates)
+          .order('time', { ascending: true });
+
+        if (error) {
+          document.getElementById('message').textContent = `Greška pri učitavanju: ${error.message}`;
+          document.getElementById('message').classList.add('text-red-600');
+          console.error('Load week error:', error);
+          return;
         }
-      });
+
+        const slotsTable = document.getElementById('slotsTable');
+        slotsTable.innerHTML = '';
+        TIME_SLOTS.forEach(time => {
+          const row = document.createElement('tr');
+          row.innerHTML = `<td class="border p-2 text-sm">${time}</td>`;
+          dates.forEach((date, dayIndex) => {
+            const slot = data.find(d => d.date === date && d.time.slice(0, 5) === time);
+            const td = document.createElement('td');
+            td.classList.add('border', 'p-2', 'text-sm', 'cursor-pointer');
+            if (slot) {
+              td.classList.add(slot.is_booked ? 'slot-booked' : slot.available ? 'slot-available' : 'slot-unavailable');
+              td.innerHTML = slot.is_booked ? `${slot.name_lastname || ''}<br>${slot.main_service || ''}` : slot.available ? 'Slobodno' : 'Zatvoreno';
+            } else {
+              td.classList.add('slot-unavailable');
+              td.textContent = 'Zatvoreno';
+            }
+            td.addEventListener('click', async () => {
+              if (!slot) return;
+              const newAvailable = !slot.available;
+              const { error } = await supabaseClient
+                .from(APPOINTMENTS_TABLE)
+                .update({ available: newAvailable })
+                .eq('date', date)
+                .eq('time', `${time}:00`);
+              if (error) {
+                document.getElementById('message').textContent = `Greška pri ažuriranju: ${error.message}`;
+                document.getElementById('message').classList.add('text-red-600');
+              } else {
+                td.classList.toggle('slot-available', newAvailable && !slot.is_booked);
+                td.classList.toggle('slot-unavailable', !newAvailable);
+                td.textContent = slot.is_booked ? `${slot.name_lastname || ''}<br>${slot.main_service || ''}` : newAvailable ? 'Slobodno' : 'Zatvoreno';
+              }
+            });
+            row.appendChild(td);
+          });
+          slotsTable.appendChild(row);
+        });
+      }
 
       document.getElementById('prevWeek').addEventListener('click', async () => {
-        const currentMonday = datesOfWeek[0];
-        const prevMonday = new Date(currentMonday);
-        prevMonday.setDate(currentMonday.getDate() - 7);
-        if (prevMonday >= new Date('2025-05-24')) {
-          datesOfWeek = getWeekDates(prevMonday);
-          document.getElementById('weekSelect').value = formatDate(prevMonday);
-          await initializeSlots();
-          const data = await loadData();
-          if (data) {
-            renderCalendar(buildSlotMap(data));
-          }
-        }
+        currentWeekStart.setDate(currentWeekStart.getDate() - 7);
+        await initializeSlots(currentWeekStart);
+        await loadWeek(currentWeekStart);
       });
 
       document.getElementById('nextWeek').addEventListener('click', async () => {
-        const currentMonday = datesOfWeek[0];
-        const nextMonday = new Date(currentMonday);
-        nextMonday.setDate(currentMonday.getDate() + 7);
-        if (nextMonday <= new Date('2026-05-24')) {
-          datesOfWeek = getWeekDates(nextMonday);
-          document.getElementById('weekSelect').value = formatDate(nextMonday);
-          await initializeSlots();
-          const data = await loadData();
-          if (data) {
-            renderCalendar(buildSlotMap(data));
-          }
-        }
+        currentWeekStart.setDate(currentWeekStart.getDate() + 7);
+        await initializeSlots(currentWeekStart);
+        await loadWeek(currentWeekStart);
       });
 
-      // Initialize
-      selectedSlots.clear();
-      document.getElementById('saveButton').addEventListener('click', saveSelectedSlots);
-      document.getElementById('clearButton').addEventListener('click', clearSelection);
-      populateWeekSelect();
-
-      showMessage('Učitavanje...');
-      await initializeSlots();
-      const data = await loadData();
-      if (data) {
-        renderCalendar(buildSlotMap(data));
-        showMessage('');
-      } else {
-        showMessage('Nema podataka. Proverite Supabase konekciju.', true);
-      }
+      await initializeSlots(currentWeekStart);
+      await loadWeek(currentWeekStart);
     };
   </script>
 </body>
