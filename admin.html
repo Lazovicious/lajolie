@@ -56,7 +56,7 @@
     return;
   }
 
-  const supabase = supabaseJs.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   // Table names
   const AVAILABILITY_TABLE = 'availability_slots';
