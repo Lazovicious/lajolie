@@ -52,9 +52,13 @@
       background-color: #e0e0e0;
       color: #616161;
     }
-    .time-slot.selected {
-      background-color: #42a5f5;
-      color: white;
+    .time-slot.selected-available {
+      background-color: #a5d6a7;
+      color: #1b5e20;
+    }
+    .time-slot.selected-blocked {
+      background-color: #bdbdbd;
+      color: #424242;
     }
     .time-label {
       padding: 6px;
@@ -179,11 +183,11 @@
         ]);
 
         if (availabilityRes.error) {
-          showMessage(`Greška pri učitavanju dostupnosti: ${availabilityRes.error.message}`, true);
+          showMessage(`Greška pri učitavanju dostupnosti: ${availabilityRes.error.message}. Proverite anon ključ i RLS politike.`, true);
           return null;
         }
         if (bookingRes.error) {
-          showMessage(`Greška pri učitavanju rezervacija: ${bookingRes.error.message}`, true);
+          showMessage(`Greška pri učitavanju rezervacija: ${bookingRes.error.message}. Proverite anon ključ i RLS politike.`, true);
           return null;
         }
 
@@ -263,10 +267,12 @@
                 const key = `${dayStr}|${time}|available`;
                 if (selectedSlots.has(key)) {
                   selectedSlots.delete(key);
-                  slot.classList.remove('selected');
+                  slot.classList.remove('selected-available');
                 } else {
+                  selectedSlots.delete(`${dayStr}|${time}|blocked`);
                   selectedSlots.add(key);
-                  slot.classList.add('selected');
+                  slot.classList.remove('selected-blocked');
+                  slot.classList.add('selected-available');
                 }
                 updateSaveButton();
               });
@@ -274,11 +280,15 @@
               slot.addEventListener('contextmenu', (e) => {
                 e.preventDefault();
                 const key = `${dayStr}|${time}|blocked`;
-                if (selectedSlots.has(`${dayStr}|${time}|available`)) {
+                if (selectedSlots.has(key)) {
+                  selectedSlots.delete(key);
+                  slot.classList.remove('selected-blocked');
+                } else {
                   selectedSlots.delete(`${dayStr}|${time}|available`);
+                  selectedSlots.add(key);
+                  slot.classList.remove('selected-available');
+                  slot.classList.add('selected-blocked');
                 }
-                selectedSlots.add(key);
-                slot.classList.add('selected');
                 updateSaveButton();
               });
             }
@@ -324,7 +334,7 @@
           if (error) {
             console.error('Upsert error:', error);
             showMessage(
-              `Greška pri čuvanju: ${error.message}. Proverite da li je kompozitno unique_date_time ograničenje postavljeno na date i time kolone u tabeli availability_slots.`,
+              `Greška pri čuvanju: ${error.message}. Proverite RLS politike i kompozitno unique_date_time ograničenje na date i time kolone.`,
               true
             );
           } else {
