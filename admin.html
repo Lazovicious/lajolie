@@ -138,6 +138,7 @@
         TIME_SLOTS.push(`${h.toString().padStart(2, '0')}:00`);
         if (h < 20) TIME_SLOTS.push(`${h.toString().padStart(2, '0')}:30`);
       }
+      console.log('TIME_SLOTS:', TIME_SLOTS);
 
       function getMonday(d) {
         d = new Date(d);
@@ -174,6 +175,11 @@
         return `${hours}:${mins}`;
       }
 
+      function normalizeTime(time) {
+        // Strip seconds if present (e.g., '10:00:00' -> '10:00')
+        return time.split(':').slice(0, 2).join(':');
+      }
+
       async function initializeSlots() {
         const dateStrings = datesOfWeek.map(formatDate);
         const { data: existingSlots, error } = await supabaseClient
@@ -187,16 +193,14 @@
           return;
         }
 
-        const existing = new Set(existingSlots.map(s => `${s.date.split('T')[0]}|${s.time}`));
+        const existing = new Set(existingSlots.map(s => `${s.date.split('T')[0]}|${normalizeTime(s.time)}`));
         const slotsToInsert = [];
 
         datesOfWeek.forEach(day => {
           const dayStr = formatDate(day);
           TIME_SLOTS.forEach(time => {
             if (!existing.has(`${dayStr}|${time}`)) {
-              // Set some slots as available for testing
-              const isAvailable = dayStr === '2025-05-23' && ['10:00', '10:30', '11:00'].includes(time);
-              slotsToInsert.push({ date: dayStr, time, is_booked: false, available: isAvailable });
+              slotsToInsert.push({ date: dayStr, time, is_booked: false, available: false });
             }
           });
         });
@@ -204,7 +208,9 @@
         if (slotsToInsert.length > 0) {
           const { error: insertError } = await supabaseClient
             .from(APPOINTMENTS_TABLE)
-            .insert(slotsToInsert);
+            .insert(slotsToInsert)
+            .onConflict(['date', 'time'])
+            .ignore();
           if (insertError) {
             console.error('Error initializing slots:', insertError);
             showMessage(`Greška pri inicijalizaciji slotova: ${insertError.message}`, true);
@@ -227,13 +233,14 @@
           return null;
         }
 
-        // Normalize dates to YYYY-MM-DD
+        // Normalize dates and times
         const normalizedData = data.map(row => ({
           ...row,
-          date: row.date.split('T')[0]
+          date: row.date.split('T')[0],
+          time: normalizeTime(row.time)
         }));
 
-        console.log('Loaded and normalized appointments data:', normalizedData);
+        console.log('Loaded and normalized appointments data:', normalizedData.slice(0, 5)); // Log first 5 rows
         return normalizedData;
       }
 
@@ -252,7 +259,7 @@
           const dateStr = row.date;
           const time = row.time;
           if (!map[dateStr] || !map[dateStr][time]) {
-            unmatchedRows.push(row);
+            unmatchedRows.push({ date: dateStr, time, available: row.available, is_booked: row.is_booked });
             return;
           }
           if (row.is_booked && row.name_lastname) {
@@ -271,7 +278,7 @@
         });
 
         if (unmatchedRows.length > 0) {
-          console.warn('Unmatched rows in buildSlotMap:', unmatchedRows);
+          console.warn('Unmatched rows in buildSlotMap:', unmatchedRows.slice(0, 5)); // Log first 5 unmatched
         }
         console.log('Built slot map:', map);
         return map;
@@ -354,7 +361,7 @@
                   selectedSlots.delete(`${dayStr}|${time}|available`);
                   selectedSlots.add(key);
                   slot.classList.remove('selected-available');
-                  slot.classList.add('selected-blocked');
+                  slotList.add('selected-blocked');
                   console.log(`Selected blocked: ${key}, new classes: ${slot.className}`);
                 }
                 updateSaveButton();
