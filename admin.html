@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Admin: Manage Available Time Slots</title>
   <style>
-    /* Your CSS unchanged */
     body {
       font-family: Arial, sans-serif;
       max-width: 900px;
@@ -65,233 +64,204 @@
       text-align: center;
       color: green;
     }
-    button {
-      display: block;
-      margin: 20px auto 40px auto;
-      padding: 10px 20px;
-      font-size: 1em;
-      cursor: pointer;
-    }
   </style>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22><text y=%2214%22 font-size=%2214%22>⌛</text></svg>">
 </head>
 <body>
   <h1>Admin: Manage Available Time Slots</h1>
   <div id="calendar" class="calendar"></div>
   <div id="message" class="message"></div>
-  <button id="saveBtn">Sačuvaj izabrane termine</button>
 
+  <!-- Correct Supabase UMD bundle from jsDelivr -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/supabase.min.js"></script>
   <script>
-    async function loadSupabaseScript() {
-      return new Promise((resolve, reject) => {
-        const script = document.createElement('script');
-        script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/supabase.min.js';
-        script.async = true;
-        script.onload = () => resolve();
-        script.onerror = () => reject(new Error('Ne mogu da učitam Supabase skriptu.'));
-        document.head.appendChild(script);
-      });
-    }
-
-    window.addEventListener('load', async () => {
-      try {
-        await loadSupabaseScript();
-
-        if (typeof supabase === 'undefined') {
-          alert('Greška: Supabase JS nije učitan čak ni nakon učitavanja skripte.');
-          return;
-        }
-
-        const SUPABASE_URL = 'https://xkljqcxonrnstuivtihc.supabase.co';
-        const SUPABASE_ANON_KEY = prompt('Unesite Supabase anon ključ za admin pristup:');
-        if (!SUPABASE_ANON_KEY) {
-          alert('Admin ključ je obavezan. Osvežite stranicu da pokušate ponovo.');
-          return;
-        }
-
-        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-        const AVAILABILITY_TABLE = 'availability_slots';
-        const BOOKINGS_TABLE = 'jolie_t1';
-
-        const DAY_NAMES = ['Ponedeljak', 'Utorak', 'Sreda', 'Četvrtak', 'Petak', 'Subota', 'Nedelja'];
-
-        const TIME_SLOTS = [];
-        for (let h = 8; h < 20; h++) {
-          TIME_SLOTS.push(h.toString().padStart(2, '0') + ':00');
-          TIME_SLOTS.push(h.toString().padStart(2, '0') + ':30');
-        }
-        TIME_SLOTS.push('20:00');
-
-        function getMonday(d) {
-          d = new Date(d);
-          const day = d.getDay();
-          const diff = (day === 0 ? -6 : 1) - day;
-          d.setDate(d.getDate() + diff);
-          return d;
-        }
-
-        const monday = getMonday(new Date());
-        const datesOfWeek = [];
-        for (let i = 0; i < 7; i++) {
-          const date = new Date(monday);
-          date.setDate(monday.getDate() + i);
-          datesOfWeek.push(date);
-        }
-
-        function formatDate(date) {
-          return date.toISOString().slice(0, 10);
-        }
-
-        async function loadData() {
-          const { data: availabilityData, error: availabilityError } = await supabaseClient
-            .from(AVAILABILITY_TABLE)
-            .select('*')
-            .in('date', datesOfWeek.map(formatDate));
-
-          if (availabilityError) {
-            alert('Greška pri učitavanju dostupnosti: ' + availabilityError.message);
-            return null;
-          }
-
-          const { data: bookingData, error: bookingError } = await supabaseClient
-            .from(BOOKINGS_TABLE)
-            .select('date,time')
-            .in('date', datesOfWeek.map(formatDate));
-
-          if (bookingError) {
-            alert('Greška pri učitavanju rezervacija: ' + bookingError.message);
-            return null;
-          }
-
-          return { availabilityData, bookingData };
-        }
-
-        function buildAvailabilityMap(data) {
-          const map = {};
-          data.forEach(row => {
-            if (!map[row.date]) map[row.date] = {};
-            map[row.date][row.time] = row.available;
-          });
-          return map;
-        }
-
-        function buildBookingMap(bookings) {
-          const map = {};
-          bookings.forEach(b => {
-            if (!map[b.date]) map[b.date] = {};
-            map[b.date][b.time] = true;
-          });
-          return map;
-        }
-
-        const selectedSlots = new Set();
-
-        function renderCalendar(availabilityMap, bookingMap) {
-          const calendarDiv = document.getElementById('calendar');
-          calendarDiv.innerHTML = '';
-
-          for (let i = 0; i < 7; i++) {
-            const dayDate = datesOfWeek[i];
-            const dayStr = formatDate(dayDate);
-
-            const dayCol = document.createElement('div');
-            dayCol.className = 'day-column';
-
-            const header = document.createElement('div');
-            header.className = 'day-header';
-            header.textContent = DAY_NAMES[i] + ' ' + dayStr;
-            dayCol.appendChild(header);
-
-            TIME_SLOTS.forEach(time => {
-              const slot = document.createElement('div');
-              slot.className = 'time-slot';
-              slot.textContent = time;
-
-              const isOccupied = bookingMap[dayStr] && bookingMap[dayStr][time];
-              const isAvailable = availabilityMap[dayStr] && availabilityMap[dayStr][time];
-
-              if (isOccupied) {
-                slot.classList.add('occupied');
-                slot.title = 'Zakazano (ne može se menjati)';
-                slot.style.cursor = 'not-allowed';
-              } else if (isAvailable) {
-                slot.classList.add('available');
-              }
-
-              if (!isOccupied) {
-                slot.addEventListener('click', () => {
-                  const key = dayStr + '|' + time;
-                  if (selectedSlots.has(key)) {
-                    selectedSlots.delete(key);
-                    slot.classList.remove('selected');
-                  } else {
-                    selectedSlots.add(key);
-                    slot.classList.add('selected');
-                  }
-                });
-              }
-
-              dayCol.appendChild(slot);
-            });
-
-            calendarDiv.appendChild(dayCol);
-          }
-        }
-
-        async function saveSelectedSlots() {
-          if (selectedSlots.size === 0) {
-            alert('Nema izabranih termina za čuvanje.');
-            return;
-          }
-
-          const slotsToSave = [];
-          selectedSlots.forEach(key => {
-            const [date, time] = key.split('|');
-            slotsToSave.push({
-              date,
-              time,
-              available: true,
-            });
-          });
-
-          const { error } = await supabaseClient
-            .from(AVAILABILITY_TABLE)
-            .upsert(slotsToSave, { onConflict: ['date', 'time'] });
-
-          if (error) {
-            alert('Greška prilikom čuvanja: ' + error.message);
-          } else {
-            document.getElementById('message').textContent = 'Termini sačuvani!';
-            selectedSlots.clear();
-            await main();
-          }
-        }
-
-        async function main() {
-          document.getElementById('message').textContent = 'Učitavanje...';
-          const data = await loadData();
-          if (!data) {
-            document.getElementById('message').textContent = 'Greška pri učitavanju podataka.';
-            return;
-          }
-
-          const availabilityMap = buildAvailabilityMap(data.availabilityData);
-          const bookingMap = buildBookingMap(data.bookingData);
-
-          selectedSlots.clear();
-          renderCalendar(availabilityMap, bookingMap);
-          document.getElementById('message').textContent = 'Izaberite termine, zatim kliknite "Sačuvaj izabrane termine".';
-        }
-
-        document.getElementById('saveBtn').addEventListener('click', saveSelectedSlots);
-
-        await main();
-
-      } catch (e) {
-        alert('Greška: ' + e.message);
+    window.onload = async () => {
+      if (typeof supabase === 'undefined') {
+        alert('Greška: Supabase JS nije učitan. Osvežite stranicu.');
+        return;
       }
-    });
+
+      const SUPABASE_URL = 'https://xkljqcxonrnstuivtihc.supabase.co';
+      const SUPABASE_ANON_KEY = prompt('Unesite Supabase anon ključ za admin pristup:');
+      if (!SUPABASE_ANON_KEY) {
+        alert('Admin ključ je neophodan. Osvežite stranicu da pokušate ponovo.');
+        return;
+      }
+
+      const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      const AVAILABILITY_TABLE = 'availability_slots';
+      const BOOKINGS_TABLE = 'jolie_t1';
+      const DAY_NAMES = ['Ponedeljak', 'Utorak', 'Sreda', 'Četvrtak', 'Petak', 'Subota', 'Nedelja'];
+
+      const TIME_SLOTS = [];
+      for (let h = 8; h < 20; h++) {
+        TIME_SLOTS.push(h.toString().padStart(2, '0') + ':00');
+        TIME_SLOTS.push(h.toString().padStart(2, '0') + ':30');
+      }
+      TIME_SLOTS.push('20:00');
+
+      function getMonday(d) {
+        d = new Date(d);
+        const day = d.getDay();
+        const diff = (day === 0 ? -6 : 1) - day;
+        d.setDate(d.getDate() + diff);
+        return d;
+      }
+
+      const monday = getMonday(new Date());
+      const datesOfWeek = [];
+      for (let i = 0; i < 7; i++) {
+        const dt = new Date(monday);
+        dt.setDate(monday.getDate() + i);
+        datesOfWeek.push(dt);
+      }
+
+      function formatDate(d) {
+        return d.toISOString().slice(0, 10);
+      }
+
+      async function loadData() {
+        const { data: availabilityData, error: availabilityError } = await supabaseClient
+          .from(AVAILABILITY_TABLE)
+          .select('*')
+          .in('date', datesOfWeek.map(formatDate));
+        if (availabilityError) {
+          alert('Greška pri učitavanju dostupnosti: ' + availabilityError.message);
+          return null;
+        }
+
+        const { data: bookingData, error: bookingError } = await supabaseClient
+          .from(BOOKINGS_TABLE)
+          .select('date,time')
+          .in('date', datesOfWeek.map(formatDate));
+        if (bookingError) {
+          alert('Greška pri učitavanju rezervacija: ' + bookingError.message);
+          return null;
+        }
+
+        return { availabilityData, bookingData };
+      }
+
+      function buildAvailabilityMap(data) {
+        const map = {};
+        data.forEach(row => {
+          if (!map[row.date]) map[row.date] = {};
+          map[row.date][row.time] = row.available;
+        });
+        return map;
+      }
+
+      function buildBookingMap(data) {
+        const map = {};
+        data.forEach(b => {
+          if (!map[b.date]) map[b.date] = {};
+          map[b.date][b.time] = true;
+        });
+        return map;
+      }
+
+      const selectedSlots = new Set();
+
+      function renderCalendar(availabilityMap, bookingMap) {
+        const calendarDiv = document.getElementById('calendar');
+        calendarDiv.innerHTML = '';
+
+        for (let i = 0; i < 7; i++) {
+          const dayDate = datesOfWeek[i];
+          const dayStr = formatDate(dayDate);
+
+          const dayCol = document.createElement('div');
+          dayCol.className = 'day-column';
+
+          const header = document.createElement('div');
+          header.className = 'day-header';
+          header.textContent = DAY_NAMES[i] + ' ' + dayStr;
+          dayCol.appendChild(header);
+
+          TIME_SLOTS.forEach(time => {
+            const slot = document.createElement('div');
+            slot.className = 'time-slot';
+            slot.textContent = time;
+
+            const isOccupied = bookingMap[dayStr] && bookingMap[dayStr][time];
+            const isAvailable = availabilityMap[dayStr] && availabilityMap[dayStr][time];
+
+            if (isOccupied) {
+              slot.classList.add('occupied');
+              slot.title = 'Zakazano (ne može se menjati)';
+              slot.style.cursor = 'not-allowed';
+            } else if (isAvailable) {
+              slot.classList.add('available');
+            }
+
+            if (!isOccupied) {
+              slot.addEventListener('click', () => {
+                const key = dayStr + '|' + time;
+                if (selectedSlots.has(key)) {
+                  selectedSlots.delete(key);
+                  slot.classList.remove('selected');
+                } else {
+                  selectedSlots.add(key);
+                  slot.classList.add('selected');
+                }
+              });
+            }
+
+            dayCol.appendChild(slot);
+          });
+
+          calendarDiv.appendChild(dayCol);
+        }
+      }
+
+      async function saveSelectedSlots() {
+        if (selectedSlots.size === 0) {
+          alert('Nema izabranih termina za čuvanje.');
+          return;
+        }
+
+        const slotsToSave = [];
+        selectedSlots.forEach(key => {
+          const [date, time] = key.split('|');
+          slotsToSave.push({ date, time, available: true });
+        });
+
+        const { error } = await supabaseClient
+          .from(AVAILABILITY_TABLE)
+          .upsert(slotsToSave, { onConflict: ['date', 'time'] });
+
+        if (error) {
+          alert('Greška prilikom čuvanja: ' + error.message);
+        } else {
+          document.getElementById('message').textContent = 'Termini sačuvani!';
+          selectedSlots.clear();
+          await main();
+        }
+      }
+
+      async function main() {
+        document.getElementById('message').textContent = 'Učitavanje...';
+        const data = await loadData();
+        if (!data) return;
+
+        const availabilityMap = buildAvailabilityMap(data.availabilityData);
+        const bookingMap = buildBookingMap(data.bookingData);
+
+        renderCalendar(availabilityMap, bookingMap);
+        document.getElementById('message').textContent = '';
+      }
+
+      if (!document.getElementById('saveButton')) {
+        const saveBtn = document.createElement('button');
+        saveBtn.textContent = 'Sačuvaj izabrane termine';
+        saveBtn.style.margin = '20px auto';
+        saveBtn.style.display = 'block';
+        saveBtn.id = 'saveButton';
+        saveBtn.onclick = saveSelectedSlots;
+        document.body.appendChild(saveBtn);
+      }
+
+      await main();
+    };
   </script>
 </body>
 </html>
