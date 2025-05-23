@@ -176,8 +176,13 @@
       }
 
       function normalizeTime(time) {
-        // Strip seconds if present (e.g., '10:00:00' -> '10:00')
-        return time.split(':').slice(0, 2).join(':');
+        try {
+          // Strip seconds and beyond (e.g., '10:00:00' or '10:00:00.000' -> '10:00')
+          return time.split(':').slice(0, 2).join(':');
+        } catch (e) {
+          console.warn(`Failed to normalize time: ${time}`, e);
+          return time; // Fallback to original
+        }
       }
 
       async function initializeSlots() {
@@ -237,7 +242,8 @@
         const normalizedData = data.map(row => ({
           ...row,
           date: row.date.split('T')[0],
-          time: normalizeTime(row.time)
+          time: normalizeTime(row.time),
+          raw_time: row.time // Keep raw for debugging
         }));
 
         console.log('Loaded and normalized appointments data:', normalizedData.slice(0, 5)); // Log first 5 rows
@@ -259,7 +265,8 @@
           const dateStr = row.date;
           const time = row.time;
           if (!map[dateStr] || !map[dateStr][time]) {
-            unmatchedRows.push({ date: dateStr, time, available: row.available, is_booked: row.is_booked });
+            unmatchedRows.push({ date: dateStr, raw_time: row.raw_time, time, available: row.available, is_booked: row.is_booked });
+            console.warn(`Unmatched row: date=${dateStr}, raw_time=${row.raw_time}, normalized_time=${time}, expected times: ${TIME_SLOTS.join(', ')}`);
             return;
           }
           if (row.is_booked && row.name_lastname) {
@@ -361,7 +368,7 @@
                   selectedSlots.delete(`${dayStr}|${time}|available`);
                   selectedSlots.add(key);
                   slot.classList.remove('selected-available');
-                  slotList.add('selected-blocked');
+                  slot.classList.add('selected-blocked');
                   console.log(`Selected blocked: ${key}, new classes: ${slot.className}`);
                 }
                 updateSaveButton();
