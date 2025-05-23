@@ -315,22 +315,30 @@
           slotsToSave.push({ date, time, is_booked: false, available: status === 'available' });
         });
 
-        const { error } = await supabaseClient
-          .from(AVAILABILITY_TABLE)
-          .upsert(slotsToSave, { onConflict: ['date', 'time'] })
-          .select(); // Ensure response is returned for debugging
+        try {
+          const { data, error } = await supabaseClient
+            .from(AVAILABILITY_TABLE)
+            .upsert(slotsToSave, { onConflict: ['date', 'time'] })
+            .select();
 
-        if (error) {
-          console.error('Upsert error:', error);
-          showMessage(`Greška pri čuvanju: ${error.message}`, true);
-        } else {
-          showMessage('Termini uspešno sačuvani!');
-          selectedSlots.clear();
-          const data = await loadData();
-          if (data) {
-            renderCalendar(buildAvailabilityMap(data.availabilityData), buildBookingMap(data.bookingData));
-            updateSaveButton();
+          if (error) {
+            console.error('Upsert error:', error);
+            showMessage(
+              `Greška pri čuvanju: ${error.message}. Proverite da li je kompozitno unique_date_time ograničenje postavljeno na date i time kolone u tabeli availability_slots.`,
+              true
+            );
+          } else {
+            showMessage('Termini uspešno sačuvani!');
+            selectedSlots.clear();
+            const data = await loadData();
+            if (data) {
+              renderCalendar(buildAvailabilityMap(data.availabilityData), buildBookingMap(data.bookingData));
+              updateSaveButton();
+            }
           }
+        } catch (err) {
+          console.error('Unexpected error during upsert:', err);
+          showMessage('Neočekivana greška pri čuvanju. Proverite konzolu za detalje.', true);
         }
       }
 
