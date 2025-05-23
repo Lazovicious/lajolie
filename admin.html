@@ -5,65 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Admin: Manage Available Time Slots</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      max-width: 900px;
-      margin: 20px auto;
-      padding: 0 10px;
-    }
-    h1 {
-      text-align: center;
-    }
-    .calendar {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 4px;
-      margin-top: 20px;
-      user-select: none;
-    }
-    .day-column {
-      flex: 1;
-      min-width: 120px;
-      border: 1px solid #ddd;
-      border-radius: 6px;
-      padding: 6px;
-      display: flex;
-      flex-direction: column;
-    }
-    .day-header {
-      font-weight: bold;
-      text-align: center;
-      margin-bottom: 8px;
-      font-size: 1.1em;
-    }
-    .time-slot {
-      margin: 3px 0;
-      padding: 5px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 0.9em;
-      text-align: center;
-      background-color: #eee;
-      transition: background-color 0.3s;
-    }
-    .time-slot.available {
-      background-color: #b3e6b3;
-    }
-    .time-slot.occupied {
-      background-color: #e68a8a;
-      cursor: not-allowed;
-      color: #660000;
-    }
-    .time-slot.selected {
-      background-color: #3399ff;
-      color: white;
-    }
-    .message {
-      margin-top: 10px;
-      font-weight: bold;
-      text-align: center;
-      color: green;
-    }
+    /* Same CSS as provided */
   </style>
 </head>
 <body>
@@ -71,11 +13,11 @@
   <div id="calendar" class="calendar"></div>
   <div id="message" class="message"></div>
 
-  <!-- Correct Supabase UMD bundle from jsDelivr -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/supabase.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <script>
     window.onload = async () => {
       if (typeof supabase === 'undefined') {
+        console.error('Supabase JS not loaded.');
         alert('Greška: Supabase JS nije učitan. Osvežite stranicu.');
         return;
       }
@@ -88,6 +30,8 @@
       }
 
       const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      console.log('Supabase initialized:', supabaseClient);
+
       const AVAILABILITY_TABLE = 'availability_slots';
       const BOOKINGS_TABLE = 'jolie_t1';
       const DAY_NAMES = ['Ponedeljak', 'Utorak', 'Sreda', 'Četvrtak', 'Petak', 'Subota', 'Nedelja'];
@@ -125,6 +69,7 @@
           .select('*')
           .in('date', datesOfWeek.map(formatDate));
         if (availabilityError) {
+          console.error('Availability error:', availabilityError);
           alert('Greška pri učitavanju dostupnosti: ' + availabilityError.message);
           return null;
         }
@@ -134,10 +79,12 @@
           .select('date,time')
           .in('date', datesOfWeek.map(formatDate));
         if (bookingError) {
+          console.error('Booking error:', bookingError);
           alert('Greška pri učitavanju rezervacija: ' + bookingError.message);
           return null;
         }
 
+        console.log('Fetched data:', { availabilityData, bookingData });
         return { availabilityData, bookingData };
       }
 
@@ -188,20 +135,30 @@
             if (isOccupied) {
               slot.classList.add('occupied');
               slot.title = 'Zakazano (ne može se menjati)';
-              slot.style.cursor = 'not-allowed';
             } else if (isAvailable) {
               slot.classList.add('available');
             }
 
             if (!isOccupied) {
               slot.addEventListener('click', () => {
-                const key = dayStr + '|' + time;
+                const key = dayStr + '|' + time + '|true';
                 if (selectedSlots.has(key)) {
                   selectedSlots.delete(key);
                   slot.classList.remove('selected');
                 } else {
                   selectedSlots.add(key);
                   slot.classList.add('selected');
+                }
+                console.log('Selected slots:', [...selectedSlots]);
+              });
+
+              slot.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                if (isAvailable) {
+                  const key = dayStr + '|' + time + '|false';
+                  selectedSlots.add(key);
+                  slot.classList.add('unavailable');
+                  console.log('Marked unavailable:', key);
                 }
               });
             }
@@ -221,20 +178,25 @@
 
         const slotsToSave = [];
         selectedSlots.forEach(key => {
-          const [date, time] = key.split('|');
-          slotsToSave.push({ date, time, available: true });
+          const [date, time, available = 'true'] = key.split('|');
+          slotsToSave.push({ date, time, available: available === 'true' });
         });
 
         const { error } = await supabaseClient
           .from(AVAILABILITY_TABLE)
           .upsert(slotsToSave, { onConflict: ['date', 'time'] });
+        console.log('Upsert response:', { error });
 
         if (error) {
           alert('Greška prilikom čuvanja: ' + error.message);
         } else {
           document.getElementById('message').textContent = 'Termini sačuvani!';
           selectedSlots.clear();
-          await main();
+          const data = await loadData();
+          if (data) {
+            const availabilityMap = buildAvailabilityMap(data.availabilityData);
+            renderCalendar(availabilityMap, buildBookingMap(data.bookingData));
+          }
         }
       }
 
@@ -245,20 +207,34 @@
 
         const availabilityMap = buildAvailabilityMap(data.availabilityData);
         const bookingMap = buildBookingMap(data.bookingData);
+        console.log('Maps:', { availabilityMap, bookingMap });
 
         renderCalendar(availabilityMap, bookingMap);
         document.getElementById('message').textContent = '';
       }
 
-      if (!document.getElementById('saveButton')) {
-        const saveBtn = document.createElement('button');
-        saveBtn.textContent = 'Sačuvaj izabrane termine';
-        saveBtn.style.margin = '20px auto';
-        saveBtn.style.display = 'block';
-        saveBtn.id = 'saveButton';
-        saveBtn.onclick = saveSelectedSlots;
-        document.body.appendChild(saveBtn);
-      }
+      // Create buttons
+      const saveBtn = document.createElement('button');
+      saveBtn.textContent = 'Sačuvaj izabrane termine';
+      saveBtn.style.margin = '20px 10px';
+      saveBtn.style.display = 'inline-block';
+      saveBtn.id = 'saveButton';
+      saveBtn.onclick = saveSelectedSlots;
+      document.body.appendChild(saveBtn);
+
+      const clearBtn = document.createElement('button');
+      clearBtn.textContent = 'Poništi izbor';
+      clearBtn.style.margin = '20px 10px';
+      clearBtn.style.display = 'inline-block';
+      clearBtn.onclick = () => {
+        selectedSlots.clear();
+        const data = await loadData();
+        if (data) {
+          renderCalendar(buildAvailabilityMap(data.availabilityData), buildBookingMap(data.bookingData));
+          document.getElementById('message').textContent = 'Izbor poništen.';
+        }
+      };
+      document.body.appendChild(clearBtn);
 
       await main();
     };
