@@ -317,9 +317,11 @@
 
         const { error } = await supabaseClient
           .from(AVAILABILITY_TABLE)
-          .upsert(slotsToSave, { onConflict: ['date', 'time'] });
+          .upsert(slotsToSave, { onConflict: ['date', 'time'] })
+          .select(); // Ensure response is returned for debugging
 
         if (error) {
+          console.error('Upsert error:', error);
           showMessage(`Greška pri čuvanju: ${error.message}`, true);
         } else {
           showMessage('Termini uspešno sačuvani!');
