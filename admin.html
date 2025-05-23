@@ -18,6 +18,18 @@
       text-align: center;
       margin-bottom: 20px;
     }
+    .controls {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+    select, button {
+      padding: 8px;
+      font-size: 1rem;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
     .calendar {
       display: grid;
       grid-template-columns: auto repeat(7, 1fr);
@@ -108,6 +120,13 @@
 </head>
 <body>
   <h1>Admin: Upravljanje Terminima</h1>
+  <div class="controls">
+    <select id="weekSelect">
+      <option value="">Izaberite nedelju</option>
+    </select>
+    <button id="prevWeek">Prethodna Nedelja</button>
+    <button id="nextWeek">Sledeća Nedelja</button>
+  </div>
   <div id="calendar" class="calendar"></div>
   <div id="message" class="message"></div>
   <div class="buttons">
@@ -148,20 +167,48 @@
         return d;
       }
 
-      const monday = getMonday(new Date());
-      const datesOfWeek = [];
-      for (let i = 0; i < 7; i++) {
-        const dt = new Date(monday);
-        dt.setDate(monday.getDate() + i);
-        datesOfWeek.push(dt);
+      function getWeekDates(startDate) {
+        const monday = getMonday(startDate);
+        const dates = [];
+        for (let i = 0; i < 7; i++) {
+          const dt = new Date(monday);
+          dt.setDate(monday.getDate() + i);
+          dates.push(dt);
+        }
+        return dates;
       }
+
+      // Generate weeks from May 2024 to April 2026
+      const weeks = [];
+      let current = new Date('2024-05-01');
+      const end = new Date('2026-04-30');
+      while (current <= end) {
+        weeks.push(new Date(current));
+        current.setDate(current.getDate() + 7);
+      }
+
+      function populateWeekSelect() {
+        const weekSelect = document.getElementById('weekSelect');
+        weekSelect.innerHTML = '<option value="">Izaberite nedelju</option>';
+        weeks.forEach(week => {
+          const monday = getMonday(week);
+          const sunday = new Date(monday);
+          sunday.setDate(monday.getDate() + 6);
+          const option = document.createElement('option');
+          option.value = formatDate(monday);
+          option.textContent = `${formatDisplayDate(monday)} - ${formatDisplayDate(sunday)}`;
+          weekSelect.appendChild(option);
+        });
+      }
+
+      let datesOfWeek = getWeekDates(new Date());
 
       function formatDate(d) {
         return d.toISOString().slice(0, 10);
       }
 
       function formatDisplayDate(d) {
-        return d.toLocaleDateString('sr-RS', { weekday: 'short', day: 'numeric', month: 'short' });
+        return d.toLocaleDateString('sr-RS', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
       }
 
       function timeToMinutes(time) {
@@ -177,11 +224,10 @@
 
       function normalizeTime(time) {
         try {
-          // Strip seconds and beyond (e.g., '10:00:00' or '10:00:00.000' -> '10:00')
           return time.split(':').slice(0, 2).join(':');
         } catch (e) {
           console.warn(`Failed to normalize time: ${time}`, e);
-          return time; // Fallback to original
+          return time;
         }
       }
 
@@ -238,15 +284,14 @@
           return null;
         }
 
-        // Normalize dates and times
         const normalizedData = data.map(row => ({
           ...row,
           date: row.date.split('T')[0],
           time: normalizeTime(row.time),
-          raw_time: row.time // Keep raw for debugging
+          raw_time: row.time
         }));
 
-        console.log('Loaded and normalized appointments data:', normalizedData.slice(0, 5)); // Log first 5 rows
+        console.log('Loaded and normalized appointments data:', normalizedData.slice(0, 5));
         return normalizedData;
       }
 
@@ -256,7 +301,7 @@
           const dateStr = formatDate(day);
           map[dateStr] = {};
           TIME_SLOTS.forEach(time => {
-            map[dateStr][time] = 'blocked'; // Default to blocked
+            map[dateStr][time] = 'blocked';
           });
         });
 
@@ -285,7 +330,7 @@
         });
 
         if (unmatchedRows.length > 0) {
-          console.warn('Unmatched rows in buildSlotMap:', unmatchedRows.slice(0, 5)); // Log first 5 unmatched
+          console.warn('Unmatched rows in buildSlotMap:', unmatchedRows.slice(0, 5));
         }
         console.log('Built slot map:', map);
         return map;
@@ -297,7 +342,6 @@
         const calendarDiv = document.getElementById('calendar');
         calendarDiv.innerHTML = '';
 
-        // Header row
         const headerRow = document.createElement('div');
         headerRow.style.display = 'contents';
         const emptyHeader = document.createElement('div');
@@ -311,7 +355,6 @@
         });
         calendarDiv.appendChild(headerRow);
 
-        // Time slot rows
         TIME_SLOTS.forEach(time => {
           const row = document.createElement('div');
           row.style.display = 'contents';
@@ -450,10 +493,53 @@
         }
       }
 
+      // Week navigation
+      document.getElementById('weekSelect').addEventListener('change', async (e) => {
+        if (e.target.value) {
+          datesOfWeek = getWeekDates(new Date(e.target.value));
+          await initializeSlots();
+          const data = await loadData();
+          if (data) {
+            renderCalendar(buildSlotMap(data));
+          }
+        }
+      });
+
+      document.getElementById('prevWeek').addEventListener('click', async () => {
+        const currentMonday = datesOfWeek[0];
+        const prevMonday = new Date(currentMonday);
+        prevMonday.setDate(currentMonday.getDate() - 7);
+        if (prevMonday >= new Date('2024-05-01')) {
+          datesOfWeek = getWeekDates(prevMonday);
+          document.getElementById('weekSelect').value = formatDate(prevMonday);
+          await initializeSlots();
+          const data = await loadData();
+          if (data) {
+            renderCalendar(buildSlotMap(data));
+          }
+        }
+      });
+
+      document.getElementById('nextWeek').addEventListener('click', async () => {
+        const currentMonday = datesOfWeek[0];
+        const nextMonday = new Date(currentMonday);
+        nextMonday.setDate(currentMonday.getDate() + 7);
+        if (nextMonday <= new Date('2026-04-30')) {
+          datesOfWeek = getWeekDates(nextMonday);
+          document.getElementById('weekSelect').value = formatDate(nextMonday);
+          await initializeSlots();
+          const data = await loadData();
+          if (data) {
+            renderCalendar(buildSlotMap(data));
+          }
+        }
+      });
+
       // Initialize
-      selectedSlots.clear(); // Clear selections on load
+      selectedSlots.clear();
       document.getElementById('saveButton').addEventListener('click', saveSelectedSlots);
       document.getElementById('clearButton').addEventListener('click', clearSelection);
+      populateWeekSelect();
 
       showMessage('Učitavanje...');
       await initializeSlots();
