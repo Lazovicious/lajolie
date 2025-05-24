@@ -88,7 +88,7 @@
               <th class="border p-2 text-xs sm:text-sm">Usluga</th>
               <th class="border p-2 text-xs sm:text-sm">Datum</th>
               <th class="border p-2 text-xs sm:text-sm">Vreme</th>
-              <th class="border p-2 text-xs sm:text-sm">Otkaзано</th>
+              <th class="border p-2 text-xs sm:text-sm">Otkazano</th>
             </tr>
           </thead>
           <tbody id="historyTable"></tbody>
@@ -400,6 +400,7 @@
         // Save to canceled_appointments (use first slot's data)
         if (appointmentSlots.length > 0) {
           const firstSlot = appointmentSlots[0];
+          console.log('Attempting to save canceled appointment:', firstSlot);
           const { error: insertError } = await supabaseClient
             .from(CANCELED_TABLE)
             .insert({
@@ -453,6 +454,7 @@
 
       async function cancelSingleSlot(date, time, slotData) {
         // Save to canceled_appointments
+        console.log('Attempting to save canceled slot:', slotData);
         const { error: insertError } = await supabaseClient
           .from(CANCELED_TABLE)
           .insert({
