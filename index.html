@@ -47,8 +47,8 @@
 </head>
 <body class="bg-gradient-to-br from-[#f2eaea] to-[#e2d3d3] min-h-screen flex items-center justify-center p-4">
   <div class="bg-white/80 backdrop-blur-md rounded-2xl shadow-lg w-full max-w-md">
-    <div class="flex justify-center py-4 bg-gray-50/50 rounded-t-2xl">
-      <img src="https://i.imgur.com/0sKGZVj.png" alt="Logo" class="h-40 opacity-90 drop-shadow-md">
+    <div class="flex justify-center py-6 bg-gradient-to-br from-[#f2eaea] to-[#e2d3d3] rounded-t-2xl">
+      <img src="https://i.imgur.com/0sKGZVj.png" alt="Logo" class="h-48 opacity-80 drop-shadow-lg">
     </div>
     <div class="p-6">
       <h1 class="text-2xl font-bold text-gray-800 mb-6 text-center">Zakazivanje Termina</h1>
@@ -207,6 +207,7 @@
       const priceDisplay = document.getElementById('priceDisplay');
       const messageDiv = document.getElementById('message');
       const form = document.getElementById('appointmentForm');
+      const dropdowns = form.querySelectorAll('select[required]');
 
       mainService.addEventListener('change', () => {
         noviSetOptions.classList.toggle('hidden', mainService.value !== 'Novi set noktiju');
@@ -227,6 +228,14 @@
       });
 
       dateSelect.addEventListener('change', loadAvailableTimes);
+
+      // Clear tooltips when dropdowns are changed
+      dropdowns.forEach(select => {
+        select.addEventListener('change', () => {
+          const tooltip = select.closest('.tooltip');
+          tooltip.classList.remove('invalid');
+        });
+      });
 
       function calculateEstimates() {
         let duration = mainService.value === 'Korekcija' ? 30 : 60;
@@ -369,30 +378,62 @@
 
         const duration = calculateEstimates();
         const startTime = document.getElementById('time').value;
+        const selectedDate = document.getElementById('date').value;
         const startMinutes = timeToMinutes(startTime);
         const numSlots = Math.ceil(duration / 30);
-        const payloads = [];
+        const slotTimes = [];
 
         for (let i = 0; i < numSlots; i++) {
           const slotTime = minutesToTime(startMinutes + i * 30);
-          if (!TIME_SLOTS.includes(slotTime)) continue;
-
-          payloads.push({
-            date: document.getElementById('date').value,
-            time: `${slotTime}:00`,
-            is_booked: true,
-            available: false,
-            name_lastname: document.getElementById('name_lastname').value,
-            phone: document.getElementById('phone').value,
-            main_service: document.getElementById('main_service').value,
-            sub_service: document.getElementById('sub_service').value || null,
-            length: document.getElementById('length').value || null,
-            shape: document.getElementById('shape').value || null,
-            design: designOptions.length ? designOptions.join(', ') : null,
-            notes: document.getElementById('notes').value || null,
-            duration
-          });
+          if (TIME_SLOTS.includes(slotTime)) {
+            slotTimes.push(`${slotTime}:00`);
+          }
         }
+
+        // Final check for slot availability
+        console.log('Checking slot availability:', { date: selectedDate, times: slotTimes });
+        const { data: slotCheck, error: checkError } = await supabaseClient
+          .from(APPOINTMENTS_TABLE)
+          .select('time, available, is_booked')
+          .eq('date', selectedDate)
+          .in('time', slotTimes);
+
+        if (checkError) {
+          messageDiv.textContent = `Greška pri proveri termina: ${checkError.message}`;
+          messageDiv.classList.add('text-red-600');
+          messageDiv.classList.remove('text-green-600');
+          console.error('Slot check error:', checkError);
+          submitButton.disabled = false;
+          return;
+        }
+
+        const unavailableSlots = slotCheck.filter(slot => !slot.available || slot.is_booked);
+        if (unavailableSlots.length > 0) {
+          messageDiv.textContent = 'Izabrani termin više nije dostupan. Molimo izaberite drugo vreme.';
+          messageDiv.classList.add('text-red-600');
+          messageDiv.classList.remove('text-green-600');
+          console.log('Unavailable slots:', unavailableSlots);
+          await loadAvailableDates();
+          await loadAvailableTimes();
+          submitButton.disabled = false;
+          return;
+        }
+
+        const payloads = slotTimes.map(slotTime => ({
+          date: selectedDate,
+          time: slotTime,
+          is_booked: true,
+          available: false,
+          name_lastname: document.getElementById('name_lastname').value,
+          phone: document.getElementById('phone').value,
+          main_service: document.getElementById('main_service').value,
+          sub_service: document.getElementById('sub_service').value || null,
+          length: document.getElementById('length').value || null,
+          shape: document.getElementById('shape').value || null,
+          design: designOptions.length ? designOptions.join(', ') : null,
+          notes: document.getElementById('notes').value || null,
+          duration
+        }));
 
         console.log('Upsert payload:', payloads);
 
@@ -430,14 +471,6 @@
         } finally {
           submitButton.disabled = false;
         }
-      });
-
-      // Clear tooltips when dropdowns are changed
-      dropdowns.forEach(select => {
-        select.addEventListener('change', () => {
-          const tooltip = select.closest('.tooltip');
-          tooltip.classList.remove('invalid');
-        });
       });
 
       await loadAvailableDates();
