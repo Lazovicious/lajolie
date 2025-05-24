@@ -12,6 +12,33 @@
     .slot-available { background-color: #d1fae5; }
     .slot-booked { background-color: #fee2e2; }
     .slot-unavailable { background-color: #e5e7eb; }
+    .loading-overlay {
+      display: none;
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(255, 255, 255, 0.7);
+      align-items: center;
+      justify-content: center;
+      z-index: 20;
+      border-radius: 1rem;
+    }
+    .loading-overlay.active {
+      display: flex;
+    }
+    .spinner {
+      border: 4px solid rgba(0, 0, 0, 0.1);
+      border-left-color: #db2777;
+      border-radius: 50%;
+      width: 36px;
+      height: 36px;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
     @media (max-width: 640px) {
       table { font-size: 0.75rem; }
       th, td { padding: 0.25rem; }
@@ -20,7 +47,10 @@
   </style>
 </head>
 <body class="bg-gradient-to-br from-[#f2eaea] to-[#e2d3d3] min-h-screen flex flex-col items-center p-4">
-  <div class="bg-white/80 backdrop-blur-md rounded-2xl shadow-lg w-full max-w-4xl p-4 sm:p-6">
+  <div class="bg-white/80 backdrop-blur-md rounded-2xl shadow-lg w-full max-w-4xl p-4 sm:p-6 relative">
+    <div class="loading-overlay" id="loadingOverlay">
+      <div class="spinner"></div>
+    </div>
     <h1 class="text-xl font-bold text-gray-800 mb-4 text-center">Upravljanje Terminima</h1>
     <div class="flex justify-between items-center mb-4">
       <button id="prevWeek" class="bg-pink-600 text-white py-1 px-2 rounded-lg hover:bg-pink-700 text-sm">Prethodna</button>
@@ -55,7 +85,7 @@
     <div class="bg-white rounded-lg p-6 max-w-md w-full">
       <h2 class="text-lg font-semibold mb-4">Detalji Rezervacije</h2>
       <div id="bookingDetails" class="space-y-2 text-sm"></div>
-      <div class="flex justify-end mt-6 space-x-2">
+      <div class="flex justify-between mt-6">
         <button id="cancelBooking" class="bg-red-600 text-white py-1 px-3 rounded-lg hover:bg-red-700 text-sm">Otkaži</button>
         <button id="closeModal" class="bg-gray-600 text-white py-1 px-3 rounded-lg hover:bg-gray-700 text-sm">Zatvori</button>
       </div>
@@ -125,7 +155,6 @@
       console.log('Supabase client initializing with key length:', SUPABASE_ANON_KEY.length);
 
       const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-      console.log('Supabase client initialized:', !!supabaseClient);
       const APPOINTMENTS_TABLE = 'appointments';
       const CANCELED_TABLE = 'canceled_appointments';
 
@@ -136,31 +165,41 @@
         '18:00', '18:30', '19:00', '19:30', '20:00', '20:30', '21:00', '21:30',
         '22:00', '22:30', '23:00', '23:30', '00:00', '00:30'
       ];
-      console.log('TIME_SLOTS:', TIME_SLOTS);
 
       let currentWeekStart = new Date('2025-05-24');
       currentWeekStart.setHours(0, 0, 0, 0);
 
+      const loadingOverlay = document.getElementById('loadingOverlay');
+
+      function showLoading() {
+        loadingOverlay.classList.add('active');
+      }
+
+      function hideLoading() {
+        loadingOverlay.classList.remove('active');
+      }
+
       async function initializeSlots(startDate) {
-        const dates = [];
-        for (let i = 0; i < 7; i++) {
-          const date = new Date(startDate);
-          date.setDate(startDate.getDate() + i);
-          if (date >= new Date('2025-05-24') && date <= new Date('2026-05-24')) {
-            dates.push(date.toISOString().slice(0, 10));
-          }
-        }
-
-        const slots = [];
-        dates.forEach(date => {
-          TIME_SLOTS.forEach(time => {
-            slots.push({ date, time: `${time}:00`, available: true, is_booked: false });
-          });
-        });
-
-        if (slots.length === 0) return;
-
+        showLoading();
         try {
+          const dates = [];
+          for (let i = 0; i < 7; i++) {
+            const date = new Date(startDate);
+            date.setDate(startDate.getDate() + i);
+            if (date >= new Date('2025-05-24') && date <= new Date('2026-05-24')) {
+              dates.push(date.toISOString().slice(0, 10));
+            }
+          }
+
+          const slots = [];
+          dates.forEach(date => {
+            TIME_SLOTS.forEach(time => {
+              slots.push({ date, time: `${time}:00`, available: true, is_booked: false });
+            });
+          });
+
+          if (slots.length === 0) return;
+
           const { data, error } = await supabaseClient
             .from(APPOINTMENTS_TABLE)
             .upsert(slots, { onConflict: ['date', 'time'], ignoreDuplicates: true })
@@ -173,380 +212,458 @@
           } else {
             console.log('Initialized slots:', data.length);
           }
-        } catch (err) {
-          console.error('Unexpected error:', err);
-          document.getElementById('message').textContent = 'Neočekivana greška.';
-          document.getElementById('message').classList.add('text-red-600');
+        } finally {
+          hideLoading();
         }
       }
 
       async function loadWeek(startDate) {
-        const dates = [];
-        for (let i = 0; i < 7; i++) {
-          const date = new Date(startDate);
-          date.setDate(startDate.getDate() + i);
-          if (date >= new Date('2025-05-24') && date <= new Date('2026-05-24')) {
-            dates.push(date.toISOString().slice(0, 10));
-          }
-          document.getElementById(`day${i}`).textContent = date.toLocaleDateString('sr-RS', { weekday: 'short', day: 'numeric', month: 'short' });
-        }
-
-        const weekEnd = new Date(startDate);
-        weekEnd.setDate(startDate.getDate() + 6);
-        document.getElementById('weekDisplay').textContent = `${startDate.toLocaleDateString('sr-RS', { month: 'long', day: 'numeric' })} - ${weekEnd.toLocaleDateString('sr-RS', { month: 'long', day: 'numeric', year: 'numeric' })}`;
-
-        if (dates.length === 0) {
-          document.getElementById('slotsTable').innerHTML = '<tr><td colspan="8" class="text-center p-4">Nema dostupnih datuma u ovom opsegu.</td></tr>';
-          return;
-        }
-
-        const { data, error } = await supabaseClient
-          .from(APPOINTMENTS_TABLE)
-          .select('date, time, available, is_booked, name_lastname, main_service, phone, sub_service, length, shape, design, notes, duration')
-          .in('date', dates)
-          .order('time', { ascending: true });
-
-        if (error) {
-          document.getElementById('message').textContent = `Greška pri učitavanju: ${error.message}`;
-          document.getElementById('message').classList.add('text-red-600');
-          console.error('Load week error:', error);
-          return;
-        }
-
-        const slotsTable = document.getElementById('slotsTable');
-        slotsTable.innerHTML = '';
-        TIME_SLOTS.forEach(time => {
-          const row = document.createElement('tr');
-          row.innerHTML = `<td id="time-column" class="border p-1 sm:p-2 text-xs sm:text-sm">${time}</td>`;
-          dates.forEach((date, dayIndex) => {
-            const slot = data.find(d => d.date === date && d.time.slice(0, 5) === time);
-            const td = document.createElement('td');
-            td.classList.add('border', 'p-1', 'sm:p-2', 'text-xs', 'sm:text-sm', 'cursor-pointer');
-            if (slot) {
-              td.classList.add(slot.is_booked ? 'slot-booked' : slot.available ? 'slot-available' : 'slot-unavailable');
-              td.innerHTML = slot.is_booked ? `${slot.name_lastname || ''}<br>${slot.main_service || ''}` : slot.available ? 'Slobodno' : 'Zatvoreno';
-            } else {
-              td.classList.add('slot-unavailable');
-              td.textContent = 'Zatvoreno';
+        showLoading();
+        try {
+          const dates = [];
+          for (let i = 0; i < 7; i++) {
+            const date = new Date(startDate);
+            date.setDate(startDate.getDate() + i);
+            if (date >= new Date('2025-05-24') && date <= new Date('2026-05-24')) {
+              dates.push(date.toISOString().slice(0, 10));
             }
-            const handleSlotInteraction = async (e) => {
-              e.preventDefault();
-              console.log('Slot interaction:', { event: e.type, date, time });
-              if (!slot) return;
-              if (slot.is_booked) {
-                // Show booking details modal
-                const modal = document.getElementById('bookingModal');
-                const details = document.getElementById('bookingDetails');
-                details.innerHTML = `
-                  <p><strong>Ime i prezime:</strong> ${slot.name_lastname || '-'}</p>
-                  <p><strong>Telefon:</strong> ${slot.phone || '-'}</p>
-                  <p><strong>Usluga:</strong> ${slot.main_service || '-'}</p>
-                  ${slot.sub_service ? `<p><strong>Vrsta rada:</strong> ${slot.sub_service}</p>` : ''}
-                  ${slot.length ? `<p><strong>Dužina noktiju:</strong> ${slot.length}</p>` : ''}
-                  ${slot.shape ? `<p><strong>Oblik noktiju:</strong> ${slot.shape}</p>` : ''}
-                  ${slot.design ? `<p><strong>Dizajn:</strong> ${slot.design}</p>` : ''}
-                  ${slot.notes ? `<p><strong>Napomene:</strong> ${slot.notes}</p>` : ''}
-                  <p><strong>Trajanje:</strong> ${slot.duration || '-'} min</p>
-                  <p><strong>Datum:</strong> ${new Date(slot.date).toLocaleDateString('sr-RS')}</p>
-                  <p><strong>Vreme:</strong> ${slot.time.slice(0, 5)}</p>
-                `;
-                modal.classList.remove('hidden');
+            document.getElementById(`day${i}`).textContent = date.toLocaleDateString('sr-RS', { weekday: 'short', day: 'numeric', month: 'short' });
+          }
 
-                const cancelButton = document.getElementById('cancelBooking');
-                cancelButton.onclick = async () => {
-                  try {
-                    // Check if multi-slot and first/last
-                    const duration = slot.duration || 30;
-                    const slotCount = Math.ceil(duration / 30);
-                    if (slotCount > 1) {
-                      const clickedTime = slot.time.slice(0, 5);
-                      const clickedMinutes = parseInt(clickedTime.split(':')[0]) * 60 + parseInt(clickedTime.split(':')[1]);
-                      // Query to find the appointment's start time
-                      const { data: appointmentSlots, error: fetchError } = await supabaseClient
-                        .from(APPOINTMENTS_TABLE)
-                        .select('time')
-                        .eq('date', date)
-                        .eq('name_lastname', slot.name_lastname)
-                        .eq('duration', duration)
-                        .eq('is_booked', true)
-                        .order('time', { ascending: true });
-                      if (fetchError) {
-                        console.error('Fetch appointment slots error:', fetchError);
-                        document.getElementById('message').textContent = `Greška pri dohvatanju termina: ${fetchError.message}`;
-                        document.getElementById('message').classList.add('text-red-600');
-                        return;
-                      }
-                      if (appointmentSlots.length > 0) {
-                        const startTime = appointmentSlots[0].time.slice(0, 5);
-                        const startMinutes = parseInt(startTime.split(':')[0]) * 60 + parseInt(startTime.split(':')[1]);
-                        const endMinutes = startMinutes + duration - 30;
-                        const isFirstOrLast = clickedMinutes === startMinutes || clickedMinutes === endMinutes;
-                        if (isFirstOrLast) {
-                          // Show cancellation prompt
-                          const promptModal = document.getElementById('cancelPromptModal');
-                          promptModal.classList.remove('hidden');
-                          document.getElementById('cancelAll').onclick = async () => {
-                            await cancelAppointment(date, slot.name_lastname, duration, slot);
-                            promptModal.classList.add('hidden');
-                            modal.classList.add('hidden');
-                            await loadWeek(startDate);
-                          };
-                          document.getElementById('cancelSingle').onclick = async () => {
-                            await cancelSingleSlot(date, time, slot);
-                            promptModal.classList.add('hidden');
-                            modal.classList.add('hidden');
-                            await loadWeek(startDate);
-                          };
-                          document.getElementById('closePrompt').onclick = () => {
-                            promptModal.classList.add('hidden');
-                          };
-                          promptModal.onclick = (e) => {
-                            if (e.target === promptModal) {
-                              promptModal.classList.add('hidden');
-                            }
-                          };
-                          return;
-                        }
-                      }
-                    }
-                    // Default: cancel entire appointment
-                    await cancelAppointment(date, slot.name_lastname, duration, slot);
-                    modal.classList.add('hidden');
-                    await loadWeek(startDate);
-                  } catch (err) {
-                    console.error('Unexpected cancel error:', err);
-                    document.getElementById('message').textContent = 'Neočekivana greška pri otkazivanju.';
-                    document.getElementById('message').classList.add('text-red-600');
-                  }
-                };
+          const weekEnd = new Date(startDate);
+          weekEnd.setDate(startDate.getDate() + 6);
+          document.getElementById('weekDisplay').textContent = `${startDate.toLocaleDateString('sr-RS', { month: 'long', day: 'numeric' })} - ${weekEnd.toLocaleDateString('sr-RS', { month: 'long', day: 'numeric', year: 'numeric' })}`;
+
+          if (dates.length === 0) {
+            document.getElementById('slotsTable').innerHTML = '<tr><td colspan="8" class="text-center p-4">Nema dostupnih datuma u ovom opsegu.</td></tr>';
+            return;
+          }
+
+          const { data, error } = await supabaseClient
+            .from(APPOINTMENTS_TABLE)
+            .select('date, time, available, is_booked, name_lastname, main_service, phone, sub_service, length, shape, design, notes, duration')
+            .in('date', dates)
+            .order('time', { ascending: true });
+
+          if (error) {
+            document.getElementById('message').textContent = `Greška pri učitavanju: ${error.message}`;
+            document.getElementById('message').classList.add('text-red-600');
+            console.error('Load week error:', error);
+            return;
+          }
+
+          const slotsTable = document.getElementById('slotsTable');
+          slotsTable.innerHTML = '';
+          TIME_SLOTS.forEach(time => {
+            const row = document.createElement('tr');
+            row.innerHTML = `<td id="time-column" class="border p-1 sm:p-2 text-xs sm:text-sm">${time}</td>`;
+            dates.forEach((date, dayIndex) => {
+              const slot = data.find(d => d.date === date && d.time.slice(0, 5) === time);
+              const td = document.createElement('td');
+              td.classList.add('border', 'p-1', 'sm:p-2', 'text-xs', 'sm:text-sm', 'cursor-pointer');
+              if (slot) {
+                td.classList.add(slot.is_booked ? 'slot-booked' : slot.available ? 'slot-available' : 'slot-unavailable');
+                td.innerHTML = slot.is_booked ? `${slot.name_lastname || ''}<br>${slot.main_service || ''}` : slot.available ? 'Slobodno' : 'Zatvoreno';
               } else {
-                // Toggle availability
-                const newAvailable = !slot.available;
-                console.log('Updating slot:', { date, time, newAvailable });
+                td.classList.add('slot-unavailable');
+                td.textContent = 'Zatvoreno';
+              }
+
+              let touchStartX = 0;
+              let touchStartY = 0;
+              let touchStartTime = 0;
+              let isScrolling = false;
+
+              const handleSlotInteraction = async (e) => {
+                e.preventDefault();
+                console.log('Slot interaction:', { event: e.type, date, time });
+                if (!slot) return;
+                showLoading();
                 try {
-                  const { error } = await supabaseClient
+                  const { data: currentSlot, error: fetchError } = await supabaseClient
                     .from(APPOINTMENTS_TABLE)
-                    .update({ available: newAvailable })
+                    .select('available, is_booked, name_lastname, main_service, phone, sub_service, length, shape, design, notes, duration')
                     .eq('date', date)
-                    .eq('time', `${time}:00`);
-                  if (error) {
-                    console.error('Update error:', error);
-                    document.getElementById('message').textContent = `Greška pri ažuriranju: ${error.message}`;
+                    .eq('time', `${time}:00`)
+                    .single();
+                  if (fetchError) {
+                    console.error('Fetch slot error:', fetchError);
+                    document.getElementById('message').textContent = `Greška pri proveri slota: ${fetchError.message}`;
                     document.getElementById('message').classList.add('text-red-600');
+                    return;
+                  }
+                  if (currentSlot.is_booked) {
+                    const modal = document.getElementById('bookingModal');
+                    const details = document.getElementById('bookingDetails');
+                    const fields = [
+                      { key: 'name_lastname', label: 'Ime i prezime' },
+                      { key: 'phone', label: 'Telefon' },
+                      { key: 'main_service', label: 'Usluga' },
+                      { key: 'sub_service', label: 'Vrsta rada' },
+                      { key: 'length', label: 'Dužina noktiju' },
+                      { key: 'shape', label: 'Oblik noktiju' },
+                      { key: 'design', label: 'Dizajn' },
+                      { key: 'notes', label: 'Napomene' },
+                      { key: 'duration', label: 'Trajanje', format: v => `${v || '-'} min` },
+                      { key: 'date', label: 'Datum', format: v => new Date(v).toLocaleDateString('sr-RS') },
+                      { key: 'time', label: 'Vreme', format: v => v.slice(0, 5) }
+                    ];
+                    details.innerHTML = fields
+                      .filter(f => currentSlot[f.key])
+                      .map(f => `<p><strong>${f.label}:</strong> ${f.format ? f.format(currentSlot[f.key]) : currentSlot[f.key]}</p>`)
+                      .join('');
+                    modal.classList.remove('hidden');
+
+                    const cancelButton = document.getElementById('cancelBooking');
+                    cancelButton.onclick = async () => {
+                      try {
+                        const duration = currentSlot.duration || 30;
+                        const slotCount = Math.ceil(duration / 30);
+                        if (slotCount > 1) {
+                          const clickedTime = currentSlot.time.slice(0, 5);
+                          const clickedMinutes = parseInt(clickedTime.split(':')[0]) * 60 + parseInt(clickedTime.split(':')[1]);
+                          const { data: appointmentSlots, error: fetchError } = await supabaseClient
+                            .from(APPOINTMENTS_TABLE)
+                            .select('time')
+                            .eq('date', date)
+                            .eq('name_lastname', currentSlot.name_lastname)
+                            .eq('duration', duration)
+                            .eq('is_booked', true)
+                            .order('time', { ascending: true });
+                          if (fetchError) {
+                            console.error('Fetch appointment slots error:', fetchError);
+                            document.getElementById('message').textContent = `Greška pri dohvatanju termina: ${fetchError.message}`;
+                            document.getElementById('message').classList.add('text-red-600');
+                            return;
+                          }
+                          if (appointmentSlots.length > 0) {
+                            const startTime = appointmentSlots[0].time.slice(0, 5);
+                            const startMinutes = parseInt(startTime.split(':')[0]) * 60 + parseInt(startTime.split(':')[1]);
+                            const endMinutes = startMinutes + duration - 30;
+                            const isFirstOrLast = clickedMinutes === startMinutes || clickedMinutes === endMinutes;
+                            if (isFirstOrLast) {
+                              const promptModal = document.getElementById('cancelPromptModal');
+                              promptModal.classList.remove('hidden');
+                              document.getElementById('cancelAll').onclick = async () => {
+                                await cancelAppointment(date, currentSlot.name_lastname, duration, currentSlot);
+                                promptModal.classList.add('hidden');
+                                modal.classList.add('hidden');
+                                await loadWeek(startDate);
+                              };
+                              document.getElementById('cancelSingle').onclick = async () => {
+                                await cancelSingleSlot(date, time, currentSlot);
+                                promptModal.classList.add('hidden');
+                                modal.classList.add('hidden');
+                                await loadWeek(startDate);
+                              };
+                              document.getElementById('closePrompt').onclick = () => {
+                                promptModal.classList.add('hidden');
+                              };
+                              return;
+                            }
+                          }
+                        }
+                        await cancelAppointment(date, currentSlot.name_lastname, duration, currentSlot);
+                        modal.classList.add('hidden');
+                        await loadWeek(startDate);
+                      } catch (err) {
+                        console.error('Unexpected cancel error:', err);
+                        document.getElementById('message').textContent = 'Neočekivana greška pri otkazivanju.';
+                        document.getElementById('message').classList.add('text-red-600');
+                      }
+                    };
                   } else {
-                    // Refresh slot data
-                    const { data: updatedSlot, error: fetchError } = await supabaseClient
+                    const newAvailable = !currentSlot.available;
+                    console.log('Updating slot:', { date, time, newAvailable });
+                    const { error } = await supabaseClient
                       .from(APPOINTMENTS_TABLE)
-                      .select('available, is_booked, name_lastname, main_service')
+                      .update({ available: newAvailable })
                       .eq('date', date)
-                      .eq('time', `${time}:00`)
-                      .single();
-                    if (fetchError) {
-                      console.error('Fetch slot error:', fetchError);
-                      document.getElementById('message').textContent = `Greška pri osvježavanju: ${fetchError.message}`;
+                      .eq('time', `${time}:00`);
+                    if (error) {
+                      console.error('Update error:', error);
+                      document.getElementById('message').textContent = `Greška pri ažuriranju: ${error.message}`;
                       document.getElementById('message').classList.add('text-red-600');
                     } else {
-                      td.classList.toggle('slot-available', updatedSlot.available && !updatedSlot.is_booked);
-                      td.classList.toggle('slot-unavailable', !updatedSlot.available);
-                      td.innerHTML = updatedSlot.is_booked ? `${updatedSlot.name_lastname || ''}<br>${updatedSlot.main_service || ''}` : updatedSlot.available ? 'Slobodno' : 'Zatvoreno';
-                      console.log('Slot updated successfully:', { date, time, available: updatedSlot.available });
+                      td.classList.toggle('slot-available', newAvailable && !currentSlot.is_booked);
+                      td.classList.toggle('slot-unavailable', !newAvailable);
+                      td.innerHTML = currentSlot.is_booked ? `${currentSlot.name_lastname || ''}<br>${currentSlot.main_service || ''}` : newAvailable ? 'Slobodno' : 'Zatvoreno';
+                      console.log('Slot updated successfully:', { date, time, available: newAvailable });
                       await loadWeek(startDate);
                     }
                   }
-                } catch (err) {
-                  console.error('Unexpected update error:', err);
-                  document.getElementById('message').textContent = 'Neočekivana greška pri ažuriranju.';
-                  document.getElementById('message').classList.add('text-red-600');
+                } finally {
+                  hideLoading();
                 }
-              }
-            };
-            td.addEventListener('click', handleSlotInteraction);
-            td.addEventListener('touchend', handleSlotInteraction);
-            row.appendChild(td);
-          });
-          slotsTable.appendChild(row);
-        });
+              };
 
-        // Modal close handlers
-        document.getElementById('closeModal').onclick = () => {
-          document.getElementById('bookingModal').classList.add('hidden');
-        };
-        document.getElementById('bookingModal').onclick = (e) => {
-          if (e.target === document.getElementById('bookingModal')) {
-            document.getElementById('bookingModal').classList.add('hidden');
-          }
-        };
+              td.addEventListener('click', handleSlotInteraction);
+              td.addEventListener('touchstart', (e) => {
+                touchStartX = e.touches[0].clientX;
+                touchStartY = e.touches[0].clientY;
+                touchStartTime = Date.now();
+                isScrolling = false;
+              });
+              td.addEventListener('touchmove', (e) => {
+                const touchX = e.touches[0].clientX;
+                const touchY = e.touches[0].clientY;
+                const deltaX = Math.abs(touchX - touchStartX);
+                const deltaY = Math.abs(touchY - touchStartY);
+                if (deltaX > 10 || deltaY > 10) {
+                  isScrolling = true;
+                }
+              });
+              td.addEventListener('touchend', (e) => {
+                const touchDuration = Date.now() - touchStartTime;
+                if (!isScrolling && touchDuration < 500) {
+                  handleSlotInteraction(e);
+                }
+              });
+
+              row.appendChild(td);
+            });
+            slotsTable.appendChild(row);
+          });
+        } finally {
+          hideLoading();
+        }
       }
 
       async function cancelAppointment(date, name_lastname, duration, slotData) {
-        // Fetch all slots for the appointment
-        const { data: appointmentSlots, error: fetchError } = await supabaseClient
-          .from(APPOINTMENTS_TABLE)
-          .select('time, name_lastname, phone, main_service, sub_service, length, shape, design, notes, duration, date')
-          .eq('date', date)
-          .eq('name_lastname', name_lastname)
-          .eq('duration', duration)
-          .eq('is_booked', true)
-          .order('time', { ascending: true });
-        if (fetchError) {
-          console.error('Fetch appointment slots error:', fetchError);
-          document.getElementById('message').textContent = `Greška pri dohvatanju termina: ${fetchError.message}`;
-          document.getElementById('message').classList.add('text-red-600');
-          return;
-        }
-        const times = appointmentSlots.map(slot => slot.time);
-        console.log('Canceling appointment:', { date, name_lastname, duration, times });
+        showLoading();
+        try {
+          const { data: appointmentSlots, error: fetchError } = await supabaseClient
+            .from(APPOINTMENTS_TABLE)
+            .select('time, name_lastname, phone, main_service, sub_service, length, shape, design, notes, duration, date')
+            .eq('date', date)
+            .eq('name_lastname', name_lastname)
+            .eq('duration', duration)
+            .eq('is_booked', true)
+            .order('time', { ascending: true });
+          if (fetchError) {
+            console.error('Fetch appointment slots error:', fetchError);
+            document.getElementById('message').textContent = `Greška pri dohvatanju termina: ${fetchError.message}`;
+            document.getElementById('message').classList.add('text-red-600');
+            return;
+          }
+          const times = appointmentSlots.map(slot => slot.time);
+          console.log('Canceling appointment:', { date, name_lastname, duration, times });
 
-        // Save to canceled_appointments (use first slot's data)
-        if (appointmentSlots.length > 0) {
-          const firstSlot = appointmentSlots[0];
-          console.log('Attempting to save canceled appointment:', firstSlot);
-          const { error: insertError } = await supabaseClient
-            .from(CANCELED_TABLE)
-            .insert({
-              name_lastname: firstSlot.name_lastname,
-              phone: firstSlot.phone,
-              main_service: firstSlot.main_service,
-              sub_service: firstSlot.sub_service,
-              length: firstSlot.length,
-              shape: firstSlot.shape,
-              design: firstSlot.design,
-              notes: firstSlot.notes,
-              duration: firstSlot.duration,
-              date: firstSlot.date,
-              start_time: firstSlot.time
-            });
-          if (insertError) {
-            console.error('Insert canceled appointment error:', insertError);
-            document.getElementById('message').textContent = `Greška pri čuvanju otkazanog termina: ${insertError.message}`;
+          const { data: slotCheck, error: checkError } = await supabaseClient
+            .from(APPOINTMENTS_TABLE)
+            .select('time, is_booked')
+            .eq('date', date)
+            .in('time', times);
+          if (checkError) {
+            console.error('Slot check error:', checkError);
+            document.getElementById('message').textContent = `Greška pri proveri termina: ${checkError.message}`;
+            document.getElementById('message').classList.add('text-red-600');
+            return;
+          }
+          const unbookedSlots = slotCheck.filter(slot => !slot.is_booked);
+          if (unbookedSlots.length > 0) {
+            document.getElementById('message').textContent = 'Termin je već otkazan ili izmenjen.';
+            document.getElementById('message').classList.add('text-red-600');
+            return;
+          }
+
+          if (appointmentSlots.length > 0) {
+            const firstSlot = appointmentSlots[0];
+            console.log('Attempting to save canceled appointment:', firstSlot);
+            const { error: insertError } = await supabaseClient
+              .from(CANCELED_TABLE)
+              .insert({
+                name_lastname: firstSlot.name_lastname,
+                phone: firstSlot.phone,
+                main_service: firstSlot.main_service,
+                sub_service: firstSlot.sub_service,
+                length: firstSlot.length,
+                shape: firstSlot.shape,
+                design: firstSlot.design,
+                notes: firstSlot.notes,
+                duration: firstSlot.duration,
+                date: firstSlot.date,
+                start_time: firstSlot.time
+              });
+            if (insertError) {
+              console.error('Insert canceled appointment error:', insertError);
+              document.getElementById('message').textContent = `Greška pri čuvanju otkazanog termina: ${insertError.message}`;
+              document.getElementById('message').classList.add('text-red-600');
+            } else {
+              console.log('Saved canceled appointment:', { date, start_time: firstSlot.time });
+            }
+          }
+
+          const { error } = await supabaseClient
+            .from(APPOINTMENTS_TABLE)
+            .update({
+              is_booked: false,
+              available: true,
+              name_lastname: null,
+              phone: null,
+              main_service: null,
+              sub_service: null,
+              length: null,
+              shape: null,
+              design: null,
+              notes: null,
+              duration: null
+            })
+            .eq('date', date)
+            .in('time', times);
+          if (error) {
+            console.error('Cancel appointment error:', error);
+            document.getElementById('message').textContent = `Greška pri otkazivanju termina: ${error.message}`;
             document.getElementById('message').classList.add('text-red-600');
           } else {
-            console.log('Saved canceled appointment:', { date, start_time: firstSlot.time });
+            console.log('Appointment canceled:', { date, times });
+            document.getElementById('message').textContent = 'Termin uspešno otkazan.';
+            document.getElementById('message').classList.add('text-green-600');
+            document.getElementById('message').classList.remove('text-red-600');
           }
-        }
-
-        // Clear appointment slots
-        const { error } = await supabaseClient
-          .from(APPOINTMENTS_TABLE)
-          .update({
-            is_booked: false,
-            available: true,
-            name_lastname: null,
-            phone: null,
-            main_service: null,
-            sub_service: null,
-            length: null,
-            shape: null,
-            design: null,
-            notes: null,
-            duration: null
-          })
-          .eq('date', date)
-          .in('time', times);
-        if (error) {
-          console.error('Cancel appointment error:', error);
-          document.getElementById('message').textContent = `Greška pri otkazivanju termina: ${error.message}`;
-          document.getElementById('message').classList.add('text-red-600');
-        } else {
-          console.log('Appointment canceled:', { date, times });
+        } finally {
+          hideLoading();
         }
       }
 
       async function cancelSingleSlot(date, time, slotData) {
-        // Save to canceled_appointments
-        console.log('Attempting to save canceled slot:', slotData);
-        const { error: insertError } = await supabaseClient
-          .from(CANCELED_TABLE)
-          .insert({
-            name_lastname: slotData.name_lastname,
-            phone: slotData.phone,
-            main_service: slotData.main_service,
-            sub_service: slotData.sub_service,
-            length: slotData.length,
-            shape: slotData.shape,
-            design: slotData.design,
-            notes: slotData.notes,
-            duration: slotData.duration,
-            date: slotData.date,
-            start_time: slotData.time
-          });
-        if (insertError) {
-          console.error('Insert canceled slot error:', insertError);
-          document.getElementById('message').textContent = `Greška pri čuvanju otkazanog slota: ${insertError.message}`;
-          document.getElementById('message').classList.add('text-red-600');
-        } else {
-          console.log('Saved canceled slot:', { date, time });
-        }
+        showLoading();
+        try {
+          const { data: slotCheck, error: checkError } = await supabaseClient
+            .from(APPOINTMENTS_TABLE)
+            .select('is_booked')
+            .eq('date', date)
+            .eq('time', `${time}:00`)
+            .single();
+          if (checkError) {
+            console.error('Slot check error:', checkError);
+            document.getElementById('message').textContent = `Greška pri proveri slota: ${checkError.message}`;
+            document.getElementById('message').classList.add('text-red-600');
+            return;
+          }
+          if (!slotCheck.is_booked) {
+            document.getElementById('message').textContent = 'Slot je već otkazan ili izmenjen.';
+            document.getElementById('message').classList.add('text-red-600');
+            return;
+          }
 
-        // Clear single slot
-        const { error } = await supabaseClient
-          .from(APPOINTMENTS_TABLE)
-          .update({
-            is_booked: false,
-            available: true,
-            name_lastname: null,
-            phone: null,
-            main_service: null,
-            sub_service: null,
-            length: null,
-            shape: null,
-            design: null,
-            notes: null,
-            duration: null
-          })
-          .eq('date', date)
-          .eq('time', `${time}:00`);
-        if (error) {
-          console.error('Cancel single slot error:', error);
-          document.getElementById('message').textContent = `Greška pri otkazivanju slota: ${error.message}`;
-          document.getElementById('message').classList.add('text-red-600');
-        } else {
-          console.log('Single slot canceled:', { date, time });
+          console.log('Attempting to save canceled slot:', slotData);
+          const { error: insertError } = await supabaseClient
+            .from(CANCELED_TABLE)
+            .insert({
+              name_lastname: slotData.name_lastname,
+              phone: slotData.phone,
+              main_service: slotData.main_service,
+              sub_service: slotData.sub_service,
+              length: slotData.length,
+              shape: slotData.shape,
+              design: slotData.design,
+              notes: slotData.notes,
+              duration: slotData.duration,
+              date: slotData.date,
+              start_time: slotData.time
+            });
+          if (insertError) {
+            console.error('Insert canceled slot error:', insertError);
+            document.getElementById('message').textContent = `Greška pri čuvanju otkazanog slota: ${insertError.message}`;
+            document.getElementById('message').classList.add('text-red-600');
+          } else {
+            console.log('Saved canceled slot:', { date, time });
+          }
+
+          const { error } = await supabaseClient
+            .from(APPOINTMENTS_TABLE)
+            .update({
+              is_booked: false,
+              available: true,
+              name_lastname: null,
+              phone: null,
+              main_service: null,
+              sub_service: null,
+              length: null,
+              shape: null,
+              design: null,
+              notes: null,
+              duration: null
+            })
+            .eq('date', date)
+            .eq('time', `${time}:00`);
+          if (error) {
+            console.error('Cancel single slot error:', error);
+            document.getElementById('message').textContent = `Greška pri otkazivanju slota: ${error.message}`;
+            document.getElementById('message').classList.add('text-red-600');
+          } else {
+            console.log('Single slot canceled:', { date, time });
+            document.getElementById('message').textContent = 'Slot uspešno otkazan.';
+            document.getElementById('message').classList.add('text-green-600');
+            document.getElementById('message').classList.remove('text-red-600');
+          }
+        } finally {
+          hideLoading();
         }
       }
 
       async function loadCancellationHistory() {
-        const { data, error } = await supabaseClient
-          .from(CANCELED_TABLE)
-          .select('name_lastname, phone, main_service, date, start_time, canceled_at')
-          .order('canceled_at', { ascending: false })
-          .limit(15);
-        if (error) {
-          console.error('Fetch cancellation history error:', error);
-          document.getElementById('message').textContent = `Greška pri učitavanju istorije: ${error.message}`;
-          document.getElementById('message').classList.add('text-red-600');
-          return;
+        showLoading();
+        try {
+          const { data, error } = await supabaseClient
+            .from(CANCELED_TABLE)
+            .select('name_lastname, phone, main_service, date, start_time, canceled_at')
+            .order('canceled_at', { ascending: false })
+            .limit(15);
+          if (error) {
+            console.error('Fetch cancellation history error:', error);
+            document.getElementById('message').textContent = `Greška pri učitavanju istorije: ${error.message}`;
+            document.getElementById('message').classList.add('text-red-600');
+            return;
+          }
+          const historyTable = document.getElementById('historyTable');
+          historyTable.innerHTML = '';
+          if (data.length === 0) {
+            historyTable.innerHTML = '<tr><td colspan="6" class="border p-2 text-center">Nema otkazanih termina.</td></tr>';
+            return;
+          }
+          data.forEach(record => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+              <td class="border p-2 text-xs sm:text-sm">${record.name_lastname || '-'}</td>
+              <td class="border p-2 text-xs sm:text-sm">${record.phone || '-'}</td>
+              <td class="border p-2 text-xs sm:text-sm">${record.main_service || '-'}</td>
+              <td class="border p-2 text-xs sm:text-sm">${new Date(record.date).toLocaleDateString('sr-RS')}</td>
+              <td class="border p-2 text-xs sm:text-sm">${record.start_time.slice(0, 5)}</td>
+              <td class="border p-2 text-xs sm:text-sm">${new Date(record.canceled_at).toLocaleString('sr-RS')}</td>
+            `;
+            historyTable.appendChild(row);
+          });
+        } finally {
+          hideLoading();
         }
-        const historyTable = document.getElementById('historyTable');
-        historyTable.innerHTML = '';
-        if (data.length === 0) {
-          historyTable.innerHTML = '<tr><td colspan="6" class="border p-2 text-center">Nema otkazanih termina.</td></tr>';
-          return;
-        }
-        data.forEach(record => {
-          const row = document.createElement('tr');
-          row.innerHTML = `
-            <td class="border p-2 text-xs sm:text-sm">${record.name_lastname || '-'}</td>
-            <td class="border p-2 text-xs sm:text-sm">${record.phone || '-'}</td>
-            <td class="border p-2 text-xs sm:text-sm">${record.main_service || '-'}</td>
-            <td class="border p-2 text-xs sm:text-sm">${new Date(record.date).toLocaleDateString('sr-RS')}</td>
-            <td class="border p-2 text-xs sm:text-sm">${record.start_time.slice(0, 5)}</td>
-            <td class="border p-2 text-xs sm:text-sm">${new Date(record.canceled_at).toLocaleString('sr-RS')}</td>
-          `;
-          historyTable.appendChild(row);
-        });
       }
 
+      document.getElementById('closeModal').onclick = () => {
+        document.getElementById('bookingModal').classList.add('hidden');
+      };
+      document.getElementById('bookingModal').onclick = (e) => {
+        if (e.target === document.getElementById('bookingModal')) {
+          document.getElementById('bookingModal').classList.add('hidden');
+        }
+      };
+      document.getElementById('closePrompt').onclick = () => {
+        document.getElementById('cancelPromptModal').classList.add('hidden');
+      };
+      document.getElementById('cancelPromptModal').onclick = (e) => {
+        if (e.target === document.getElementById('cancelPromptModal')) {
+          document.getElementById('cancelPromptModal').classList.add('hidden');
+        }
+      };
       document.getElementById('historyButton').addEventListener('click', async () => {
         const modal = document.getElementById('historyModal');
         await loadCancellationHistory();
         modal.classList.remove('hidden');
       });
-
       document.getElementById('closeHistoryModal').addEventListener('click', () => {
         document.getElementById('historyModal').classList.add('hidden');
       });
-
       document.getElementById('historyModal').addEventListener('click', (e) => {
         if (e.target === document.getElementById('historyModal')) {
           document.getElementById('historyModal').classList.add('hidden');
