@@ -5,10 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Zakazivanje Termina</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&Sacramento&display=swap" rel="stylesheet">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💅</text></svg>" />
   <style>
-     <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&Sacramento&display=swap" rel="stylesheet">
-      <link rel="icon" href="data:image/svg+xml,...">
     select:invalid {
       color: gray;
     }
@@ -86,6 +85,10 @@
       clip-path: polygon(0 0, 30% 10%, 60% 0, 70% 40%, 100% 30%, 90% 70%, 100% 100%, 40% 90%, 0 100%, 10% 60%);
       z-index: -1;
     }
+    h1 {
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
   </style>
 </head>
 <body class="bg-gradient-to-br from-[#f2eaea] to-[#e2d3d3] min-h-screen flex items-center justify-center p-4">
@@ -94,7 +97,7 @@
       <img src="https://i.imgur.com/0sKGZVj.png" alt="Logo" class="h-48 opacity-80 drop-shadow-lg">
     </div>
     <div class="p-6">
-        <h1 class="text-2xl sm:text-3xl font-light text-[#ff69b4] mb-6 text-center" style="font-family: 'Great Vibes', 'Sacramento', cursive; text-shadow: 0 0 8px rgba(255, 105, 180, 0.5);">Zakazivanje Termina</h1>
+      <h1 class="text-2xl sm:text-3xl font-light text-[#ff69b4] mb-6 text-center" style="font-family: 'Great Vibes', 'Sacramento', Arial, sans-serif; text-shadow: 0 0 8px rgba(255, 105, 180, 0.5);">Zakazivanje Termina</h1>
       <form id="appointmentForm" class="space-y-4 text-gray-800">
         <div>
           <label for="name_lastname" class="block mb-1 text-sm font-medium">Ime i prezime</label>
@@ -255,8 +258,6 @@
           requiresNoviSetOptions: false,
           additionalFields: []
         }
-        // Add new services here, e.g.:
-        // 'Manikir': { baseDuration: 45, basePrice: 1500, requiresNoviSetOptions: false, additionalFields: [] }
       };
 
       const mainService = document.getElementById('main_service');
@@ -297,7 +298,7 @@
       });
 
       document.querySelectorAll('#noviSetOptions select, #noviSetOptions input[type=checkbox]').forEach(el => {
-        el.addEventListener('change', () => {
+        el.addEventListener('change', (() => {
           calculateEstimates();
           loadAvailableTimes();
         });
