@@ -59,6 +59,19 @@
     </div>
   </div>
 
+  <!-- Modal for cancellation prompt -->
+  <div id="cancelPromptModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-lg p-6 max-w-md w-full">
+      <h2 class="text-lg font-semibold mb-4">Potvrda otkazivanja</h2>
+      <p class="text-sm mb-4">Želite li otkazati cijeli termin ili samo ovaj slot?</p>
+      <div class="flex justify-end space-x-2">
+        <button id="cancelAll" class="bg-red-600 text-white py-1 px-3 rounded-lg hover:bg-red-700 text-sm">Cijeli termin</button>
+        <button id="cancelSingle" class="bg-red-600 text-white py-1 px-3 rounded-lg hover:bg-red-700 text-sm">Samo ovaj slot</button>
+        <button id="closePrompt" class="bg-gray-600 text-white py-1 px-3 rounded-lg hover:bg-gray-700 text-sm">Odustani</button>
+      </div>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <script>
     window.onload = async () => {
@@ -187,7 +200,9 @@
               td.classList.add('slot-unavailable');
               td.textContent = 'Zatvoreno';
             }
-            td.addEventListener('click', async () => {
+            const handleSlotInteraction = async (e) => {
+              e.preventDefault();
+              console.log('Slot interaction:', { event: e.type, date, time });
               if (!slot) return;
               if (slot.is_booked) {
                 // Show booking details modal
@@ -211,32 +226,46 @@
                 const cancelButton = document.getElementById('cancelBooking');
                 cancelButton.onclick = async () => {
                   try {
-                    const { error } = await supabaseClient
-                      .from(APPOINTMENTS_TABLE)
-                      .update({
-                        is_booked: false,
-                        available: true,
-                        name_lastname: null,
-                        phone: null,
-                        main_service: null,
-                        sub_service: null,
-                        length: null,
-                        shape: null,
-                        design: null,
-                        notes: null,
-                        duration: null
-                      })
-                      .eq('date', date)
-                      .eq('time', `${time}:00`);
-                    if (error) {
-                      console.error('Cancel error:', error);
-                      document.getElementById('message').textContent = `Greška pri otkazivanju: ${error.message}`;
-                      document.getElementById('message').classList.add('text-red-600');
-                    } else {
-                      modal.classList.add('hidden');
-                      await loadWeek(startDate); // Refresh table
-                      console.log('Booking canceled:', { date, time });
+                    // Check if multi-slot and first/last
+                    const duration = slot.duration || 30;
+                    const slotCount = Math.ceil(duration / 30);
+                    if (slotCount > 1) {
+                      const startTime = slot.time.slice(0, 5);
+                      const startMinutes = parseInt(startTime.split(':')[0]) * 60 + parseInt(startTime.split(':')[1]);
+                      const endMinutes = startMinutes + duration - 30;
+                      const clickedMinutes = parseInt(time.split(':')[0]) * 60 + parseInt(time.split(':')[1]);
+                      const isFirstOrLast = clickedMinutes === startMinutes || clickedMinutes === endMinutes;
+                      if (isFirstOrLast) {
+                        // Show cancellation prompt
+                        const promptModal = document.getElementById('cancelPromptModal');
+                        promptModal.classList.remove('hidden');
+                        document.getElementById('cancelAll').onclick = async () => {
+                          await cancelAppointment(date, startTime, duration);
+                          promptModal.classList.add('hidden');
+                          modal.classList.add('hidden');
+                          await loadWeek(startDate);
+                        };
+                        document.getElementById('cancelSingle').onclick = async () => {
+                          await cancelSingleSlot(date, time);
+                          promptModal.classList.add('hidden');
+                          modal.classList.add('hidden');
+                          await loadWeek(startDate);
+                        };
+                        document.getElementById('closePrompt').onclick = () => {
+                          promptModal.classList.add('hidden');
+                        };
+                        promptModal.onclick = (e) => {
+                          if (e.target === promptModal) {
+                            promptModal.classList.add('hidden');
+                          }
+                        };
+                        return;
+                      }
                     }
+                    // Default: cancel entire appointment
+                    await cancelAppointment(date, slot.time.slice(0, 5), duration);
+                    modal.classList.add('hidden');
+                    await loadWeek(startDate);
                   } catch (err) {
                     console.error('Unexpected cancel error:', err);
                     document.getElementById('message').textContent = 'Neočekivana greška pri otkazivanju.';
@@ -270,50 +299,4 @@
                       document.getElementById('message').textContent = `Greška pri osvježavanju: ${fetchError.message}`;
                       document.getElementById('message').classList.add('text-red-600');
                     } else {
-                      td.classList.toggle('slot-available', updatedSlot.available && !updatedSlot.is_booked);
-                      td.classList.toggle('slot-unavailable', !updatedSlot.available);
-                      td.textContent = updatedSlot.is_booked ? `${updatedSlot.name_lastname || ''}<br>${updatedSlot.main_service || ''}` : updatedSlot.available ? 'Slobodno' : 'Zatvoreno';
-                      console.log('Slot updated successfully:', { date, time, available: updatedSlot.available });
-                    }
-                  }
-                } catch (err) {
-                  console.error('Unexpected update error:', err);
-                  document.getElementById('message').textContent = 'Neočekivana greška pri ažuriranju.';
-                  document.getElementById('message').classList.add('text-red-600');
-                }
-              }
-            });
-            row.appendChild(td);
-          });
-          slotsTable.appendChild(row);
-        });
-
-        // Modal close handler
-        document.getElementById('closeModal').onclick = () => {
-          document.getElementById('bookingModal').classList.add('hidden');
-        };
-        document.getElementById('bookingModal').onclick = (e) => {
-          if (e.target === document.getElementById('bookingModal')) {
-            document.getElementById('bookingModal').classList.add('hidden');
-          }
-        };
-      }
-
-      document.getElementById('prevWeek').addEventListener('click', async () => {
-        currentWeekStart.setDate(currentWeekStart.getDate() - 7);
-        await initializeSlots(currentWeekStart);
-        await loadWeek(currentWeekStart);
-      });
-
-      document.getElementById('nextWeek').addEventListener('click', async () => {
-        currentWeekStart.setDate(currentWeekStart.getDate() + 7);
-        await initializeSlots(currentWeekStart);
-        await loadWeek(currentWeekStart);
-      });
-
-      await initializeSlots(currentWeekStart);
-      await loadWeek(currentWeekStart);
-    };
-  </script>
-</body>
-</html>
+                      td.class
