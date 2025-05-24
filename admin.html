@@ -62,10 +62,10 @@
   <!-- Modal for cancellation prompt -->
   <div id="cancelPromptModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
     <div class="bg-white rounded-lg p-6 max-w-md w-full">
-      <h2 class="text-lg font-semibold mb-4">Potvrda otkazivanja</h2>
-      <p class="text-sm mb-4">Želite li otkazati cijeli termin ili samo ovaj slot?</p>
+      <h2 class="text-lg font-semibold mb-4">Potvrda Otkazivanja</h2>
+      <p class="text-sm mb-4">Želite li otkazati ceo termin ili samo ovaj slot?</p>
       <div class="flex justify-end space-x-2">
-        <button id="cancelAll" class="bg-red-600 text-white py-1 px-3 rounded-lg hover:bg-red-700 text-sm">Cijeli termin</button>
+        <button id="cancelAll" class="bg-red-600 text-white py-1 px-3 rounded-lg hover:bg-red-700 text-sm">Ceo termin</button>
         <button id="cancelSingle" class="bg-red-600 text-white py-1 px-3 rounded-lg hover:bg-red-700 text-sm">Samo ovaj slot</button>
         <button id="closePrompt" class="bg-gray-600 text-white py-1 px-3 rounded-lg hover:bg-gray-700 text-sm">Odustani</button>
       </div>
@@ -230,40 +230,58 @@
                     const duration = slot.duration || 30;
                     const slotCount = Math.ceil(duration / 30);
                     if (slotCount > 1) {
-                      const startTime = slot.time.slice(0, 5);
-                      const startMinutes = parseInt(startTime.split(':')[0]) * 60 + parseInt(startTime.split(':')[1]);
-                      const endMinutes = startMinutes + duration - 30;
-                      const clickedMinutes = parseInt(time.split(':')[0]) * 60 + parseInt(time.split(':')[1]);
-                      const isFirstOrLast = clickedMinutes === startMinutes || clickedMinutes === endMinutes;
-                      if (isFirstOrLast) {
-                        // Show cancellation prompt
-                        const promptModal = document.getElementById('cancelPromptModal');
-                        promptModal.classList.remove('hidden');
-                        document.getElementById('cancelAll').onclick = async () => {
-                          await cancelAppointment(date, startTime, duration);
-                          promptModal.classList.add('hidden');
-                          modal.classList.add('hidden');
-                          await loadWeek(startDate);
-                        };
-                        document.getElementById('cancelSingle').onclick = async () => {
-                          await cancelSingleSlot(date, time);
-                          promptModal.classList.add('hidden');
-                          modal.classList.add('hidden');
-                          await loadWeek(startDate);
-                        };
-                        document.getElementById('closePrompt').onclick = () => {
-                          promptModal.classList.add('hidden');
-                        };
-                        promptModal.onclick = (e) => {
-                          if (e.target === promptModal) {
-                            promptModal.classList.add('hidden');
-                          }
-                        };
+                      const clickedTime = slot.time.slice(0, 5);
+                      const clickedMinutes = parseInt(clickedTime.split(':')[0]) * 60 + parseInt(clickedTime.split(':')[1]);
+                      // Query to find the appointment's start time
+                      const { data: appointmentSlots, error: fetchError } = await supabaseClient
+                        .from(APPOINTMENTS_TABLE)
+                        .select('time')
+                        .eq('date', date)
+                        .eq('name_lastname', slot.name_lastname)
+                        .eq('duration', duration)
+                        .eq('is_booked', true)
+                        .order('time', { ascending: true });
+                      if (fetchError) {
+                        console.error('Fetch appointment slots error:', fetchError);
+                        document.getElementById('message').textContent = `Greška pri dohvatanju termina: ${fetchError.message}`;
+                        document.getElementById('message').classList.add('text-red-600');
                         return;
+                      }
+                      if (appointmentSlots.length > 0) {
+                        const startTime = appointmentSlots[0].time.slice(0, 5);
+                        const startMinutes = parseInt(startTime.split(':')[0]) * 60 + parseInt(startTime.split(':')[1]);
+                        const endMinutes = startMinutes + duration - 30;
+                        const isFirstOrLast = clickedMinutes === startMinutes || clickedMinutes === endMinutes;
+                        if (isFirstOrLast) {
+                          // Show cancellation prompt
+                          const promptModal = document.getElementById('cancelPromptModal');
+                          promptModal.classList.remove('hidden');
+                          document.getElementById('cancelAll').onclick = async () => {
+                            await cancelAppointment(date, slot.name_lastname, duration);
+                            promptModal.classList.add('hidden');
+                            modal.classList.add('hidden');
+                            await loadWeek(startDate);
+                          };
+                          document.getElementById('cancelSingle').onclick = async () => {
+                            await cancelSingleSlot(date, time);
+                            promptModal.classList.add('hidden');
+                            modal.classList.add('hidden');
+                            await loadWeek(startDate);
+                          };
+                          document.getElementById('closePrompt').onclick = () => {
+                            promptModal.classList.add('hidden');
+                          };
+                          promptModal.onclick = (e) => {
+                            if (e.target === promptModal) {
+                              promptModal.classList.add('hidden');
+                            }
+                          };
+                          return;
+                        }
                       }
                     }
                     // Default: cancel entire appointment
-                    await cancelAppointment(date, slot.time.slice(0, 5), duration);
+                    await cancelAppointment(date, slot.name_lastname, duration);
                     modal.classList.add('hidden');
                     await loadWeek(startDate);
                   } catch (err) {
@@ -301,22 +319,10 @@
                     } else {
                       td.classList.toggle('slot-available', updatedSlot.available && !updatedSlot.is_booked);
                       td.classList.toggle('slot-unavailable', !updatedSlot.available);
-                      td.textContent = updatedSlot.is_booked ? `${updatedSlot.name_lastname || ''}<br>${updatedSlot.main_service || ''}` : updatedSlot.available ? 'Slobodno' : 'Zatvoreno';
+                      td.innerHTML = updatedSlot.is_booked ? `${updatedSlot.name_lastname || ''}<br>${updatedSlot.main_service || ''}` : updatedSlot.available ? 'Slobodno' : 'Zatvoreno';
                       console.log('Slot updated successfully:', { date, time, available: updatedSlot.available });
-                      // Force row refresh on mobile
-                      setTimeout(() => {
-                        row.innerHTML = `<td id="time-column" class="border p-1 sm:p-2 text-xs sm:text-sm">${time}</td>`;
-                        dates.forEach((d, idx) => {
-                          const s = data.find(s => s.date === d && s.time.slice(0, 5) === time) || updatedSlot;
-                          const newTd = document.createElement('td');
-                          newTd.classList.add('border', 'p-1', 'sm:p-2', 'text-xs', 'sm:text-sm', 'cursor-pointer');
-                          newTd.classList.add(s.is_booked ? 'slot-booked' : s.available ? 'slot-available' : 'slot-unavailable');
-                          newTd.innerHTML = s.is_booked ? `${s.name_lastname || ''}<br>${s.main_service || ''}` : s.available ? 'Slobodno' : 'Zatvoreno';
-                          newTd.addEventListener('click', handleSlotInteraction);
-                          newTd.addEventListener('touchend', handleSlotInteraction);
-                          row.appendChild(newTd);
-                        });
-                      }, 100);
+                      // Refresh entire table to ensure consistency
+                      await loadWeek(startDate);
                     }
                   }
                 } catch (err) {
@@ -344,18 +350,25 @@
         };
       }
 
-      async function cancelAppointment(date, startTime, duration) {
-        const slotCount = Math.ceil(duration / 30);
-        const times = [];
-        let [hours, minutes] = startTime.split(':').map(Number);
-        for (let i = 0; i < slotCount; i++) {
-          times.push(`${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`);
-          minutes += 30;
-          if (minutes >= 60) {
-            hours += 1;
-            minutes -= 60;
-          }
+      async function cancelAppointment(date, name_lastname, duration) {
+        // Fetch all slots for the appointment
+        const { data: appointmentSlots, error: fetchError } = await supabaseClient
+          .from(APPOINTMENTS_TABLE)
+          .select('time')
+          .eq('date', date)
+          .eq('name_lastname', name_lastname)
+          .eq('duration', duration)
+          .eq('is_booked', true)
+          .order('time', { ascending: true });
+        if (fetchError) {
+          console.error('Fetch appointment slots error:', fetchError);
+          document.getElementById('message').textContent = `Greška pri dohvatanju termina: ${fetchError.message}`;
+          document.getElementById('message').classList.add('text-red-600');
+          return;
         }
+        const times = appointmentSlots.map(slot => slot.time);
+        console.log('Canceling appointment:', { date, name_lastname, duration, times });
+
         const { error } = await supabaseClient
           .from(APPOINTMENTS_TABLE)
           .update({
