@@ -44,6 +44,9 @@
         <tbody id="slotsTable"></tbody>
       </table>
     </div>
+    <div class="mt-4 flex justify-center">
+      <button id="historyButton" class="bg-blue-600 text-white py-1 px-4 rounded-lg hover:bg-blue-700 text-sm">Istorija otkazanih termina</button>
+    </div>
     <div id="message" class="mt-4 text-center text-sm font-semibold"></div>
   </div>
 
@@ -68,6 +71,31 @@
         <button id="cancelAll" class="bg-red-600 text-white py-1 px-3 rounded-lg hover:bg-red-700 text-sm">Ceo termin</button>
         <button id="cancelSingle" class="bg-red-600 text-white py-1 px-3 rounded-lg hover:bg-red-700 text-sm">Samo ovaj slot</button>
         <button id="closePrompt" class="bg-gray-600 text-white py-1 px-3 rounded-lg hover:bg-gray-700 text-sm">Odustani</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal for cancellation history -->
+  <div id="historyModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+      <h2 class="text-lg font-semibold mb-4">Istorija Otkazanih Termina</h2>
+      <div id="historyContent" class="text-sm">
+        <table class="w-full border-collapse">
+          <thead>
+            <tr class="bg-gray-100">
+              <th class="border p-2 text-xs sm:text-sm">Ime i Prezime</th>
+              <th class="border p-2 text-xs sm:text-sm">Telefon</th>
+              <th class="border p-2 text-xs sm:text-sm">Usluga</th>
+              <th class="border p-2 text-xs sm:text-sm">Datum</th>
+              <th class="border p-2 text-xs sm:text-sm">Vreme</th>
+              <th class="border p-2 text-xs sm:text-sm">Otkaзано</th>
+            </tr>
+          </thead>
+          <tbody id="historyTable"></tbody>
+        </table>
+      </div>
+      <div class="flex justify-end mt-6">
+        <button id="closeHistoryModal" class="bg-gray-600 text-white py-1 px-3 rounded-lg hover:bg-gray-700 text-sm">Zatvori</button>
       </div>
     </div>
   </div>
@@ -99,6 +127,7 @@
       const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
       console.log('Supabase client initialized:', !!supabaseClient);
       const APPOINTMENTS_TABLE = 'appointments';
+      const CANCELED_TABLE = 'canceled_appointments';
 
       const TIME_SLOTS = [
         '06:00', '06:30', '07:00', '07:30', '08:00', '08:30', '09:00', '09:30',
@@ -257,13 +286,13 @@
                           const promptModal = document.getElementById('cancelPromptModal');
                           promptModal.classList.remove('hidden');
                           document.getElementById('cancelAll').onclick = async () => {
-                            await cancelAppointment(date, slot.name_lastname, duration);
+                            await cancelAppointment(date, slot.name_lastname, duration, slot);
                             promptModal.classList.add('hidden');
                             modal.classList.add('hidden');
                             await loadWeek(startDate);
                           };
                           document.getElementById('cancelSingle').onclick = async () => {
-                            await cancelSingleSlot(date, time);
+                            await cancelSingleSlot(date, time, slot);
                             promptModal.classList.add('hidden');
                             modal.classList.add('hidden');
                             await loadWeek(startDate);
@@ -281,7 +310,7 @@
                       }
                     }
                     // Default: cancel entire appointment
-                    await cancelAppointment(date, slot.name_lastname, duration);
+                    await cancelAppointment(date, slot.name_lastname, duration, slot);
                     modal.classList.add('hidden');
                     await loadWeek(startDate);
                   } catch (err) {
@@ -321,7 +350,6 @@
                       td.classList.toggle('slot-unavailable', !updatedSlot.available);
                       td.innerHTML = updatedSlot.is_booked ? `${updatedSlot.name_lastname || ''}<br>${updatedSlot.main_service || ''}` : updatedSlot.available ? 'Slobodno' : 'Zatvoreno';
                       console.log('Slot updated successfully:', { date, time, available: updatedSlot.available });
-                      // Refresh entire table to ensure consistency
                       await loadWeek(startDate);
                     }
                   }
@@ -350,11 +378,11 @@
         };
       }
 
-      async function cancelAppointment(date, name_lastname, duration) {
+      async function cancelAppointment(date, name_lastname, duration, slotData) {
         // Fetch all slots for the appointment
         const { data: appointmentSlots, error: fetchError } = await supabaseClient
           .from(APPOINTMENTS_TABLE)
-          .select('time')
+          .select('time, name_lastname, phone, main_service, sub_service, length, shape, design, notes, duration, date')
           .eq('date', date)
           .eq('name_lastname', name_lastname)
           .eq('duration', duration)
@@ -369,6 +397,34 @@
         const times = appointmentSlots.map(slot => slot.time);
         console.log('Canceling appointment:', { date, name_lastname, duration, times });
 
+        // Save to canceled_appointments (use first slot's data)
+        if (appointmentSlots.length > 0) {
+          const firstSlot = appointmentSlots[0];
+          const { error: insertError } = await supabaseClient
+            .from(CANCELED_TABLE)
+            .insert({
+              name_lastname: firstSlot.name_lastname,
+              phone: firstSlot.phone,
+              main_service: firstSlot.main_service,
+              sub_service: firstSlot.sub_service,
+              length: firstSlot.length,
+              shape: firstSlot.shape,
+              design: firstSlot.design,
+              notes: firstSlot.notes,
+              duration: firstSlot.duration,
+              date: firstSlot.date,
+              start_time: firstSlot.time
+            });
+          if (insertError) {
+            console.error('Insert canceled appointment error:', insertError);
+            document.getElementById('message').textContent = `Greška pri čuvanju otkazanog termina: ${insertError.message}`;
+            document.getElementById('message').classList.add('text-red-600');
+          } else {
+            console.log('Saved canceled appointment:', { date, start_time: firstSlot.time });
+          }
+        }
+
+        // Clear appointment slots
         const { error } = await supabaseClient
           .from(APPOINTMENTS_TABLE)
           .update({
@@ -395,7 +451,32 @@
         }
       }
 
-      async function cancelSingleSlot(date, time) {
+      async function cancelSingleSlot(date, time, slotData) {
+        // Save to canceled_appointments
+        const { error: insertError } = await supabaseClient
+          .from(CANCELED_TABLE)
+          .insert({
+            name_lastname: slotData.name_lastname,
+            phone: slotData.phone,
+            main_service: slotData.main_service,
+            sub_service: slotData.sub_service,
+            length: slotData.length,
+            shape: slotData.shape,
+            design: slotData.design,
+            notes: slotData.notes,
+            duration: slotData.duration,
+            date: slotData.date,
+            start_time: slotData.time
+          });
+        if (insertError) {
+          console.error('Insert canceled slot error:', insertError);
+          document.getElementById('message').textContent = `Greška pri čuvanju otkazanog slota: ${insertError.message}`;
+          document.getElementById('message').classList.add('text-red-600');
+        } else {
+          console.log('Saved canceled slot:', { date, time });
+        }
+
+        // Clear single slot
         const { error } = await supabaseClient
           .from(APPOINTMENTS_TABLE)
           .update({
@@ -421,6 +502,54 @@
           console.log('Single slot canceled:', { date, time });
         }
       }
+
+      async function loadCancellationHistory() {
+        const { data, error } = await supabaseClient
+          .from(CANCELED_TABLE)
+          .select('name_lastname, phone, main_service, date, start_time, canceled_at')
+          .order('canceled_at', { ascending: false })
+          .limit(15);
+        if (error) {
+          console.error('Fetch cancellation history error:', error);
+          document.getElementById('message').textContent = `Greška pri učitavanju istorije: ${error.message}`;
+          document.getElementById('message').classList.add('text-red-600');
+          return;
+        }
+        const historyTable = document.getElementById('historyTable');
+        historyTable.innerHTML = '';
+        if (data.length === 0) {
+          historyTable.innerHTML = '<tr><td colspan="6" class="border p-2 text-center">Nema otkazanih termina.</td></tr>';
+          return;
+        }
+        data.forEach(record => {
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td class="border p-2 text-xs sm:text-sm">${record.name_lastname || '-'}</td>
+            <td class="border p-2 text-xs sm:text-sm">${record.phone || '-'}</td>
+            <td class="border p-2 text-xs sm:text-sm">${record.main_service || '-'}</td>
+            <td class="border p-2 text-xs sm:text-sm">${new Date(record.date).toLocaleDateString('sr-RS')}</td>
+            <td class="border p-2 text-xs sm:text-sm">${record.start_time.slice(0, 5)}</td>
+            <td class="border p-2 text-xs sm:text-sm">${new Date(record.canceled_at).toLocaleString('sr-RS')}</td>
+          `;
+          historyTable.appendChild(row);
+        });
+      }
+
+      document.getElementById('historyButton').addEventListener('click', async () => {
+        const modal = document.getElementById('historyModal');
+        await loadCancellationHistory();
+        modal.classList.remove('hidden');
+      });
+
+      document.getElementById('closeHistoryModal').addEventListener('click', () => {
+        document.getElementById('historyModal').classList.add('hidden');
+      });
+
+      document.getElementById('historyModal').addEventListener('click', (e) => {
+        if (e.target === document.getElementById('historyModal')) {
+          document.getElementById('historyModal').classList.add('hidden');
+        }
+      });
 
       document.getElementById('prevWeek').addEventListener('click', async () => {
         currentWeekStart.setDate(currentWeekStart.getDate() - 7);
