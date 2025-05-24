@@ -43,11 +43,52 @@
         font-size: 0.7rem;
       }
     }
+    .logo-container {
+      position: relative;
+      background: linear-gradient(to bottom right, #f9e4e4, #d8c3c3, #ff69b4);
+      border-radius: 1rem 1rem 0 0;
+      overflow: hidden;
+    }
+    .logo-container::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: 
+        linear-gradient(45deg, transparent, rgba(255, 20, 147, 0.2)),
+        linear-gradient(-45deg, transparent, rgba(255, 105, 180, 0.2));
+      clip-path: polygon(0 0, 50% 20%, 100% 0, 80% 50%, 100% 100%, 50% 80%, 0 100%, 20% 50%);
+      z-index: 0;
+    }
+    .logo-container img {
+      position: relative;
+      z-index: 1;
+    }
+    .form-container {
+      position: relative;
+      background: rgba(255, 255, 255, 0.8);
+      backdrop-filter: blur(8px);
+    }
+    .form-container::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: 
+        linear-gradient(30deg, transparent, rgba(199, 21, 133, 0.1)),
+        linear-gradient(-30deg, transparent, rgba(255, 20, 147, 0.1));
+      clip-path: polygon(0 0, 30% 10%, 60% 0, 70% 40%, 100% 30%, 90% 70%, 100% 100%, 40% 90%, 0 100%, 10% 60%);
+      z-index: -1;
+    }
   </style>
 </head>
 <body class="bg-gradient-to-br from-[#f2eaea] to-[#e2d3d3] min-h-screen flex items-center justify-center p-4">
-  <div class="bg-white/80 backdrop-blur-md rounded-2xl shadow-lg w-full max-w-md">
-    <div class="flex justify-center py-6 bg-gradient-to-br from-[#f2eaea] to-[#e2d3d3] rounded-t-2xl">
+  <div class="form-container rounded-2xl shadow-lg w-full max-w-md">
+    <div class="logo-container flex justify-center py-6">
       <img src="https://i.imgur.com/0sKGZVj.png" alt="Logo" class="h-48 opacity-80 drop-shadow-lg">
     </div>
     <div class="p-6">
@@ -76,7 +117,7 @@
         <div id="noviSetOptions" class="hidden space-y-4">
           <div class="tooltip">
             <label for="sub_service" class="block mb-1 text-sm font-medium">Vrsta rada</label>
-            <select id="sub_service" name="sub_service" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400" required>
+            <select id="sub_service" name="sub_service" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400">
               <option value="" disabled selected hidden>Izaberite vrstu</option>
               <option value="Izlivanje noktiju šablonima">Izlivanje noktiju šablonima</option>
               <option value="Izlivanje noktiju gornjim tipsama">Izlivanje noktiju gornjim tipsama</option>
@@ -87,7 +128,7 @@
 
           <div class="tooltip">
             <label for="length" class="block mb-1 text-sm font-medium">Dužina noktiju</label>
-            <select id="length" name="length" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400" required>
+            <select id="length" name="length" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400">
               <option value="" disabled selected hidden>Izaberite dužinu</option>
               <option value="Kratki">Kratki</option>
               <option value="Srednji">Srednji</option>
@@ -98,7 +139,7 @@
 
           <div class="tooltip">
             <label for="shape" class="block mb-1 text-sm font-medium">Oblik noktiju</label>
-            <select id="shape" name="shape" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400" required>
+            <select id="shape" name="shape" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400">
               <option value="" disabled selected hidden>Izaberite oblik</option>
               <option value="Kocka">Kocka</option>
               <option value="Uska kocka">Uska kocka</option>
@@ -199,6 +240,23 @@
         '22:00', '22:30', '23:00', '23:30', '00:00', '00:30'
       ];
 
+      const SERVICE_CONFIG = {
+        'Novi set noktiju': {
+          baseDuration: 60,
+          basePrice: 3000,
+          requiresNoviSetOptions: true,
+          additionalFields: ['sub_service', 'length', 'shape', 'design']
+        },
+        'Korekcija': {
+          baseDuration: 30,
+          basePrice: 2000,
+          requiresNoviSetOptions: false,
+          additionalFields: []
+        }
+        // Add new services here, e.g.:
+        // 'Manikir': { baseDuration: 45, basePrice: 1500, requiresNoviSetOptions: false, additionalFields: [] }
+      };
+
       const mainService = document.getElementById('main_service');
       const noviSetOptions = document.getElementById('noviSetOptions');
       const dateSelect = document.getElementById('date');
@@ -207,14 +265,30 @@
       const priceDisplay = document.getElementById('priceDisplay');
       const messageDiv = document.getElementById('message');
       const form = document.getElementById('appointmentForm');
-      const dropdowns = form.querySelectorAll('select[required]');
+      const subService = document.getElementById('sub_service');
+      const lengthSelect = document.getElementById('length');
+      const shapeSelect = document.getElementById('shape');
+
+      function updateRequiredFields() {
+        const service = mainService.value;
+        const config = SERVICE_CONFIG[service] || { requiresNoviSetOptions: false, additionalFields: [] };
+        const fields = ['sub_service', 'length', 'shape'];
+        fields.forEach(field => {
+          const element = document.getElementById(field);
+          element.required = config.requiresNoviSetOptions && config.additionalFields.includes(field);
+        });
+      }
 
       mainService.addEventListener('change', () => {
-        noviSetOptions.classList.toggle('hidden', mainService.value !== 'Novi set noktiju');
-        if (mainService.value === 'Korekcija') {
-          document.querySelectorAll('#noviSetOptions select').forEach(select => {
-            select.value = '';
-          });
+        const service = mainService.value;
+        const config = SERVICE_CONFIG[service] || { requiresNoviSetOptions: false };
+        noviSetOptions.classList.toggle('hidden', !config.requiresNoviSetOptions);
+        updateRequiredFields();
+        if (!config.requiresNoviSetOptions) {
+          subService.value = '';
+          lengthSelect.value = '';
+          shapeSelect.value = '';
+          document.querySelectorAll('#noviSetOptions input[type=checkbox]').forEach(cb => cb.checked = false);
         }
         calculateEstimates();
         loadAvailableTimes();
@@ -230,19 +304,24 @@
       dateSelect.addEventListener('change', loadAvailableTimes);
 
       // Clear tooltips when dropdowns are changed
+      const dropdowns = form.querySelectorAll('select');
       dropdowns.forEach(select => {
         select.addEventListener('change', () => {
           const tooltip = select.closest('.tooltip');
-          tooltip.classList.remove('invalid');
+          if (tooltip) {
+            tooltip.classList.remove('invalid');
+          }
         });
       });
 
       function calculateEstimates() {
-        let duration = mainService.value === 'Korekcija' ? 30 : 60;
-        let price = mainService.value === 'Korekcija' ? 2000 : 3000;
+        const service = mainService.value;
+        const config = SERVICE_CONFIG[service] || { baseDuration: 30, basePrice: 2000 };
+        let duration = config.baseDuration;
+        let price = config.basePrice;
 
-        if (mainService.value === 'Novi set noktiju') {
-          const length = document.getElementById('length').value;
+        if (config.requiresNoviSetOptions) {
+          const length = lengthSelect.value;
           const ostalo = document.getElementById('design_ostalo').checked;
           if (length === 'Srednji' || length === 'Dugi') {
             duration += 30;
@@ -350,16 +429,21 @@
         const submitButton = document.getElementById('submitButton');
         submitButton.disabled = true;
 
-        // Validate dropdowns
+        // Validate visible dropdowns
         let isValid = true;
-        const dropdowns = form.querySelectorAll('select[required]');
+        const dropdowns = form.querySelectorAll('select:not([style*="display: none"]):not([style*="visibility: hidden"])');
         dropdowns.forEach(select => {
-          const tooltip = select.closest('.tooltip');
-          if (!select.value) {
-            tooltip.classList.add('invalid');
-            isValid = false;
+          if (select.required && !select.value) {
+            const tooltip = select.closest('.tooltip');
+            if (tooltip) {
+              tooltip.classList.add('invalid');
+              isValid = false;
+            }
           } else {
-            tooltip.classList.remove('invalid');
+            const tooltip = select.closest('.tooltip');
+            if (tooltip) {
+              tooltip.classList.remove('invalid');
+            }
           }
         });
 
@@ -377,8 +461,8 @@
         if (document.getElementById('design_ostalo').checked) designOptions.push('Ostalo');
 
         const duration = calculateEstimates();
-        const startTime = document.getElementById('time').value;
-        const selectedDate = document.getElementById('date').value;
+        const startTime = timeSelect.value;
+        const selectedDate = dateSelect.value;
         const startMinutes = timeToMinutes(startTime);
         const numSlots = Math.ceil(duration / 30);
         const slotTimes = [];
@@ -426,10 +510,10 @@
           available: false,
           name_lastname: document.getElementById('name_lastname').value,
           phone: document.getElementById('phone').value,
-          main_service: document.getElementById('main_service').value,
-          sub_service: document.getElementById('sub_service').value || null,
-          length: document.getElementById('length').value || null,
-          shape: document.getElementById('shape').value || null,
+          main_service: mainService.value,
+          sub_service: subService.value || null,
+          length: lengthSelect.value || null,
+          shape: shapeSelect.value || null,
           design: designOptions.length ? designOptions.join(', ') : null,
           notes: document.getElementById('notes').value || null,
           duration
@@ -462,6 +546,7 @@
             dateSelect.innerHTML = '<option value="" disabled selected hidden>Izaberite dan</option>';
             timeSelect.innerHTML = '<option value="" disabled selected hidden>Izaberite vreme</option>';
             document.querySelectorAll('.tooltip').forEach(tooltip => tooltip.classList.remove('invalid'));
+            updateRequiredFields();
             await loadAvailableDates();
           }
         } catch (err) {
@@ -473,6 +558,7 @@
         }
       });
 
+      updateRequiredFields();
       await loadAvailableDates();
     };
   </script>
