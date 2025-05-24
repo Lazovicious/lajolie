@@ -103,12 +103,10 @@
           <label for="name_lastname" class="block mb-1 text-sm font-medium">Ime i prezime</label>
           <input type="text" id="name_lastname" name="name_lastname" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400" required />
         </div>
-
         <div>
           <label for="phone" class="block mb-1 text-sm font-medium">Broj telefona</label>
           <input type="tel" id="phone" name="phone" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400" required pattern="\+?\d{9,15}" />
         </div>
-
         <div class="tooltip">
           <label for="main_service" class="block mb-1 text-sm font-medium">Usluga</label>
           <select id="main_service" name="main_service" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400" required>
@@ -118,7 +116,6 @@
           </select>
           <span class="tooltip-text">Molimo popunite polje</span>
         </div>
-
         <div id="noviSetOptions" class="hidden space-y-4">
           <div class="tooltip">
             <label for="sub_service" class="block mb-1 text-sm font-medium">Vrsta rada</label>
@@ -130,7 +127,6 @@
             </select>
             <span class="tooltip-text">Molimo popunite polje</span>
           </div>
-
           <div class="tooltip">
             <label for="length" class="block mb-1 text-sm font-medium">Dužina noktiju</label>
             <select id="length" name="length" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400">
@@ -141,7 +137,6 @@
             </select>
             <span class="tooltip-text">Molimo popunite polje</span>
           </div>
-
           <div class="tooltip">
             <label for="shape" class="block mb-1 text-sm font-medium">Oblik noktiju</label>
             <select id="shape" name="shape" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400">
@@ -155,7 +150,6 @@
             </select>
             <span class="tooltip-text">Molimo popunite polje</span>
           </div>
-
           <div>
             <label class="block mb-1 text-sm font-medium">Dizajn noktiju</label>
             <div class="flex flex-col gap-1">
@@ -174,7 +168,6 @@
             </div>
           </div>
         </div>
-
         <div class="tooltip">
           <label for="date" class="block mb-1 text-sm font-medium">Dan termina</label>
           <select id="date" name="date" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400" required>
@@ -182,34 +175,28 @@
           </select>
           <span class="tooltip-text">Molimo popunite polje</span>
         </div>
-
         <div class="tooltip">
           <label for="time" class="block mb-1 text-sm font-medium">Vreme termina</label>
           <select id="time" name="time" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400" required>
             <option value="" disabled selected hidden>Izaberite vreme</option>
-          </select>
+            </select>
           <span class="tooltip-text">Molimo popunite polje</span>
         </div>
-
         <div>
           <label for="notes" class="block mb-1 text-sm font-medium">Napomene</label>
           <textarea id="notes" name="notes" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 resize-none" rows="3"></textarea>
         </div>
-
         <div class="text-center text-sm text-gray-600 font-medium">
           <div id="durationDisplay">Procena trajanja: -</div>
           <div id="priceDisplay">Okvirna cena rada: -</div>
         </div>
-
         <button type="submit" class="w-full bg-pink-600 text-white py-2 px-4 rounded-lg font-semibold text-sm hover:bg-pink-700 transition duration-200" id="submitButton">
           Zakaži
         </button>
       </form>
-
       <div id="message" class="mt-4 text-center text-sm font-semibold"></div>
     </div>
   </div>
-
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <script>
     window.onload = async () => {
@@ -218,7 +205,6 @@
         document.getElementById('message').classList.add('text-red-600');
         return;
       }
-
       const SUPABASE_URL = 'https://xkljqcxonrnstuivtihc.supabase.co';
       let SUPABASE_ANON_KEY = localStorage.getItem('supabase_anon_key');
       if (!SUPABASE_ANON_KEY) {
@@ -233,10 +219,8 @@
         return;
       }
       console.log('Supabase client initializing with key length:', SUPABASE_ANON_KEY.length);
-
       const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
       const APPOINTMENTS_TABLE = 'appointments';
-
       const TIME_SLOTS = [
         '06:00', '06:30', '07:00', '07:30', '08:00', '08:30', '09:00', '09:30',
         '10:00', '10:30', '11:00', '11:30', '12:00', '12:30', '13:00', '13:30',
@@ -244,7 +228,6 @@
         '18:00', '18:30', '19:00', '19:30', '20:00', '20:30', '21:00', '21:30',
         '22:00', '22:30', '23:00', '23:30', '00:00', '00:30'
       ];
-
       const SERVICE_CONFIG = {
         'Novi set noktiju': {
           baseDuration: 60,
@@ -259,7 +242,6 @@
           additionalFields: []
         }
       };
-
       const mainService = document.getElementById('main_service');
       const noviSetOptions = document.getElementById('noviSetOptions');
       const dateSelect = document.getElementById('date');
@@ -271,7 +253,6 @@
       const subService = document.getElementById('sub_service');
       const lengthSelect = document.getElementById('length');
       const shapeSelect = document.getElementById('shape');
-
       function updateRequiredFields() {
         const service = mainService.value;
         const config = SERVICE_CONFIG[service] || { requiresNoviSetOptions: false, additionalFields: [] };
@@ -281,7 +262,6 @@
           element.required = config.requiresNoviSetOptions && config.additionalFields.includes(field);
         });
       }
-
       mainService.addEventListener('change', () => {
         const service = mainService.value;
         const config = SERVICE_CONFIG[service] || { requiresNoviSetOptions: false };
@@ -296,17 +276,13 @@
         calculateEstimates();
         loadAvailableTimes();
       });
-
       document.querySelectorAll('#noviSetOptions select, #noviSetOptions input[type=checkbox]').forEach(el => {
-        el.addEventListener('change', (() => {
+        el.addEventListener('change', () => {
           calculateEstimates();
           loadAvailableTimes();
         });
       });
-
       dateSelect.addEventListener('change', loadAvailableTimes);
-
-      // Clear tooltips when dropdowns are changed
       const dropdowns = form.querySelectorAll('select');
       dropdowns.forEach(select => {
         select.addEventListener('change', () => {
@@ -316,13 +292,11 @@
           }
         });
       });
-
       function calculateEstimates() {
         const service = mainService.value;
         const config = SERVICE_CONFIG[service] || { baseDuration: 30, basePrice: 2000 };
         let duration = config.baseDuration;
         let price = config.basePrice;
-
         if (config.requiresNoviSetOptions) {
           const length = lengthSelect.value;
           const ostalo = document.getElementById('design_ostalo').checked;
@@ -335,23 +309,19 @@
             price += 1000;
           }
         }
-
         durationDisplay.textContent = `Procena trajanja: ${duration} min`;
         priceDisplay.textContent = `Okvirna cena rada: ${price} RSD`;
         return duration;
       }
-
       function timeToMinutes(time) {
         const [hours, minutes] = time.split(':').map(Number);
         return hours * 60 + minutes;
       }
-
       function minutesToTime(minutes) {
         const hours = Math.floor(minutes / 60).toString().padStart(2, '0');
         const mins = (minutes % 60).toString().padStart(2, '0');
         return `${hours}:${mins}`;
       }
-
       async function loadAvailableDates() {
         const { data, error } = await supabaseClient
           .from(APPOINTMENTS_TABLE)
@@ -360,14 +330,12 @@
           .gte('date', '2025-05-24')
           .lte('date', '2026-05-24')
           .order('date', { ascending: true });
-
         if (error) {
           messageDiv.textContent = `Greška pri učitavanju datuma: ${error.message}`;
           messageDiv.classList.add('text-red-600');
           console.error('Load dates error:', error);
           return;
         }
-
         dateSelect.innerHTML = '<option value="" disabled selected hidden>Izaberite dan</option>';
         const uniqueDates = [...new Set(data.map(d => d.date))];
         uniqueDates.forEach(date => {
@@ -380,7 +348,6 @@
         });
         console.log('Loaded dates:', uniqueDates);
       }
-
       async function loadAvailableTimes() {
         const selectedDate = dateSelect.value;
         const duration = calculateEstimates();
@@ -388,7 +355,6 @@
           timeSelect.innerHTML = '<option value="" disabled selected hidden>Izaberite vreme</option>';
           return;
         }
-
         const { data, error } = await supabaseClient
           .from(APPOINTMENTS_TABLE)
           .select('time')
@@ -396,14 +362,12 @@
           .eq('available', true)
           .eq('is_booked', false)
           .order('time', { ascending: true });
-
         if (error) {
           messageDiv.textContent = `Greška pri učitavanju vremena: ${error.message}`;
           messageDiv.classList.add('text-red-600');
           console.error('Load times error:', error);
           return;
         }
-
         const times = data.map(d => d.time.slice(0, 5));
         const validTimes = times.filter(startTime => {
           const startMinutes = timeToMinutes(startTime);
@@ -416,7 +380,6 @@
           }
           return true;
         });
-
         timeSelect.innerHTML = '<option value="" disabled selected hidden>Izaberite vreme</option>';
         validTimes.forEach(time => {
           const option = document.createElement('option');
@@ -426,13 +389,10 @@
         });
         console.log('Loaded times for', selectedDate, 'with duration', duration, ':', validTimes);
       }
-
       form.addEventListener('submit', async e => {
         e.preventDefault();
         const submitButton = document.getElementById('submitButton');
         submitButton.disabled = true;
-
-        // Validate visible dropdowns
         let isValid = true;
         const dropdowns = form.querySelectorAll('select:not([style*="display: none"]):not([style*="visibility: hidden"])');
         dropdowns.forEach(select => {
@@ -449,7 +409,6 @@
             }
           }
         });
-
         if (!isValid) {
           messageDiv.textContent = 'Molimo popunite sva obavezna polja.';
           messageDiv.classList.add('text-red-600');
@@ -457,34 +416,28 @@
           submitButton.disabled = false;
           return;
         }
-
         const designOptions = [];
         if (document.getElementById('design_boja').checked) designOptions.push('Boja');
         if (document.getElementById('design_french').checked) designOptions.push('French');
         if (document.getElementById('design_ostalo').checked) designOptions.push('Ostalo');
-
         const duration = calculateEstimates();
         const startTime = timeSelect.value;
         const selectedDate = dateSelect.value;
         const startMinutes = timeToMinutes(startTime);
         const numSlots = Math.ceil(duration / 30);
         const slotTimes = [];
-
         for (let i = 0; i < numSlots; i++) {
           const slotTime = minutesToTime(startMinutes + i * 30);
           if (TIME_SLOTS.includes(slotTime)) {
             slotTimes.push(`${slotTime}:00`);
           }
         }
-
-        // Final check for slot availability
         console.log('Checking slot availability:', { date: selectedDate, times: slotTimes });
         const { data: slotCheck, error: checkError } = await supabaseClient
           .from(APPOINTMENTS_TABLE)
           .select('time, available, is_booked')
           .eq('date', selectedDate)
           .in('time', slotTimes);
-
         if (checkError) {
           messageDiv.textContent = `Greška pri proveri termina: ${checkError.message}`;
           messageDiv.classList.add('text-red-600');
@@ -493,7 +446,6 @@
           submitButton.disabled = false;
           return;
         }
-
         const unavailableSlots = slotCheck.filter(slot => !slot.available || slot.is_booked);
         if (unavailableSlots.length > 0) {
           messageDiv.textContent = 'Izabrani termin više nije dostupan. Molimo izaberite drugo vreme.';
@@ -505,7 +457,6 @@
           submitButton.disabled = false;
           return;
         }
-
         const payloads = slotTimes.map(slotTime => ({
           date: selectedDate,
           time: slotTime,
@@ -521,9 +472,7 @@
           notes: document.getElementById('notes').value || null,
           duration
         }));
-
         console.log('Upsert payload:', payloads);
-
         try {
           const { data, error } = await supabaseClient
             .from(APPOINTMENTS_TABLE)
@@ -532,7 +481,6 @@
               ignoreDuplicates: false
             })
             .select();
-
           if (error) {
             messageDiv.textContent = `Greška pri zakazivanju: ${error.message}. Proverite RLS politike.`;
             messageDiv.classList.add('text-red-600');
@@ -560,7 +508,6 @@
           submitButton.disabled = false;
         }
       });
-
       updateRequiredFields();
       await loadAvailableDates();
     };
