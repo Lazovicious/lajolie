@@ -361,7 +361,7 @@
                       { key: 'notes', label: 'Napomene' },
                       { key: 'duration', label: 'Trajanje', format: v => `${v || '-'} min` },
                       { key: 'date', label: 'Datum', format: v => new Date(v).toLocaleDateString('sr-RS') },
-                      { key: 'time', label: 'Vreme', format: v => v.slice(0, 5) },
+                      { key771: 'time', label: 'Vreme', format: v => v.slice(0, 5) },
                       { key: 'amount_charged', label: 'Naplaćeno', format: v => v ? formatCurrency(v) : '-' }
                     ];
                     details.innerHTML = fields
@@ -855,8 +855,8 @@
             `;
             historyTable.appendChild(row);
           });
-          document.getElementById('totalAmount').textContent = formatCurrency(total);
-          document.getElementById('monthlyAmount').textContent = formatCurrency(monthlyTotal);
+          document.getElementById('totalAmount').textContent = formatCurrency(total).replace(' RSD', '');
+          document.getElementById('monthlyAmount').textContent = formatCurrency(monthlyTotal).replace(' RSD', '');
         } finally {
           hideLoading();
         }
